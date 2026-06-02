@@ -1,0 +1,11 @@
+{
+  "name": "my-mc-launcher",
+  "version": "1.0.0",
+  "main": "src/main/index.js",
+  "scripts": { "start": "electron ." },
+  "dependencies": {
+    "electron": "^29.0.0",
+    "minecraft-launcher-core": "^3.0.0",
+    "axios": "^1.6.0"
+  }
+}
