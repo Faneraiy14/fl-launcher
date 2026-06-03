@@ -4,7 +4,7 @@
   "main": "src/main/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Faneraiy14/First_Work_Minecraft_launcher.git"
+    "url": "https://github.com"
   },
   "scripts": {
     "start": "electron .",
@@ -12,7 +12,6 @@
     "release": "rimraf dist && electron-builder --publish always"
   },
   "dependencies": {
-    "axios": "^1.6.0",
     "electron-updater": "^6.8.3",
     "minecraft-launcher-core": "^3.0.0"
   },
@@ -28,7 +27,7 @@
       {
         "provider": "github",
         "owner": "Faneraiy14",
-        "repo": "First-Work-Minecraft-Launcher"
+        "repo": "fl-launcher"
       }
     ],
     "win": {
