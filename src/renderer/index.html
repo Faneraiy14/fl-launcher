@@ -1,15 +1,56 @@
 <!DOCTYPE html>
-<html>
-<head><link rel="stylesheet" href="style.css"></head>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fl Fanerkalauncher</title>
+    <link rel="stylesheet" href="style.css">
+</head>
 <body>
-    <h1>Minecraft Launcher</h1>
-    <input type="text" id="username" placeholder="Нікнейм" value="Fanera">
-    <select id="versionSelect"></select>
-    <button id="playBtn">Запустити гру</button>
-    <div id="progressContainer" style="display:none; width: 80%; margin-top: 20px;">
-        <progress id="progressBar" value="0" max="100" style="width: 100%;"></progress>
-        <p id="statusText">Завантаження...</p>
+    <div class="app">
+        <!-- ЛЕВАЯ ПАНЕЛЬ (САЙДБАР) -->
+        <div class="sidebar">
+            <!-- Фирменный минималистичный логотип лаунчера FL -->
+            <div class="logo-container">
+                <div class="logo-triangle">FL</div>
+                <span class="logo-text">Fl Launcher</span>
+            </div>
+            
+            <button id="addBtn">+ Створити збірку</button>
+            <div id="list"></div>
+        </div>
+
+        <!-- ГЛАВНАЯ ЧАСТЬ (НАСТРОЙКИ И ЗАПУСК) -->
+        <div class="main">
+            <div class="card" id="settingsCard" style="display:none;">
+                <h2 id="title">Налаштування</h2>
+                
+                <input type="text" id="editName" placeholder="Назва збірки">
+                <input type="text" id="user" placeholder="Ігровий нікнейм">
+                <input type="text" id="customPath" placeholder="Шлях до гри (пусто = дефолт)">
+                
+                <select id="ver"></select>
+                <select id="loader">
+                    <option value="Vanilla">Vanilla</option>
+                    <option value="Fabric">Fabric</option>
+                    <option value="Forge">Forge</option>
+                    <option value="NeoForge">NeoForge</option>
+                </select>
+                
+                <button id="saveBtn">ЗБЕРЕГТИ</button>
+                <button id="playBtn" class="play">ГРАТИ</button>
+                
+                <p id="statusText">Статус: готовий</p>
+            </div>
+        </div>
     </div>
+
+    <!-- КОНТЕКСТНОЕ МЕНЮ (ПРАВАЯ КНОПКА МЫШИ) -->
+    <div id="contextMenu" class="hidden">
+        <button onclick="editInst()">Редагувати</button>
+        <button onclick="delInst()" class="del-btn-style">Видалити</button>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>
