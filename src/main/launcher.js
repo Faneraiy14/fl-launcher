@@ -1,97 +1,118 @@
 const { app } = require('electron');
-const { spawn } = require('child_process');
+const { Client } = require('minecraft-launcher-core');
 const path = require('path');
 const fs = require('fs');
 
+const launcher = new Client();
+
 function launchGame(inst, win) {
-    // Залізобетонний спосіб перевірити режим розробника
     const isDev = app.getAppPath().includes('node_modules') || !process.resourcesPath || process.resourcesPath.includes('node_modules');
+    const baseAppPath = isDev ? process.cwd() : process.resourcesPath;
     
-    // Якщо розробка — беремо корінь проекту, якщо зібрано — папку поруч із .exe (ЗА МЕЖАМИ app.asar!)
-    const baseAppPath = isDev ? process.cwd() : path.dirname(process.execPath);
+    // --- ПЕРЕНОС В ROAMING APPDATA ---
+    // Берём системный путь C:\Users\Имя\AppData\Roaming\fl-launcher
+    const appDataRoot = app.getPath('userData'); 
+    const rootPath = path.join(appDataRoot, 'instances', inst.name);
+    // ---------------------------------
     
-    // Тепер папка instances гарантовано створюється у доступному для запису місці
-    const rootPath = path.join(baseAppPath, 'instances', inst.name);
-    const jarPath = path.join(rootPath, 'versions', inst.version, `${inst.version}.jar`);
-    
-    // Шлях до вашої вбудованої портативної Java
+    // Путь к портативной Java (остаётся внутри структуры программы/extraFiles)
     const javaPath = path.join(baseAppPath, 'java', 'bin', 'java.exe');
     
-    // Перевірка, чи взагалі існує Java перед запуском
+    console.log(`[LAUNCHER_PATH_INFO]: Поиск Java за шляхом: "${javaPath}"`);
+    console.log(`[LAUNCHER_PATH_INFO]: Глобальна папка гри в AppData: "${rootPath}"`);
+
     if (!fs.existsSync(javaPath)) {
-        console.error(`Критична помилка: Java не знайдено за шляхом: ${javaPath}`);
+        if (win && !win.isDestroyed()) win.webContents.send('status', 'Статус: помилка, портативну Java не знайдено!');
+        console.error(`[LAUNCHER_ERR]: Java не знайдено за адресою: ${javaPath}`);
+        return;
+    }
+
+    // --- ПРАВИЛЬНА ТА БЕЗПЕЧНА ОЧИСТКА РЯДКА ВЕРСІЇ ---
+    let rawVersion = "";
+
+    if (inst && inst.version) {
+        if (typeof inst.version === 'object' && inst.version.id) {
+            rawVersion = inst.version.id;
+        } else if (typeof inst.version === 'string') {
+            rawVersion = inst.version;
+        }
+    }
+
+    let cleanVersionNumber = rawVersion.trim().split(' ')[0];
+
+    if (!cleanVersionNumber) {
+        console.error("[LAUNCHER_ERR]: Чиста версія гри пуста!");
         if (win && !win.isDestroyed()) {
-            win.show();
-            win.webContents.send('status', 'Помилка: вбудовану Java не знайдено!');
+            win.webContents.send('status', 'Статус: помилка конфігурації.');
+            win.webContents.send('sub-status', 'Помилка: не вдалося розпізнати версію!');
         }
         return;
     }
-    
-    const libDir = path.join(rootPath, 'libraries');
-    const argsFile = path.join(rootPath, 'args.txt');
 
-    const getFiles = (dir) => {
-        let results = [];
-        if (!fs.existsSync(dir)) return [];
-        fs.readdirSync(dir).forEach(file => {
-            const fullPath = path.join(dir, file);
-            if (fs.statSync(fullPath).isDirectory()) results = results.concat(getFiles(fullPath));
-            else if (file.endsWith('.jar')) results.push(fullPath);
-        });
-        return results;
-    };
+    console.log(`[LAUNCHER_INFO]: Запуск текстової версії гри: "${cleanVersionNumber}"`);
 
-    const libs = fs.existsSync(libDir) ? getFiles(libDir).join(';') : "";
-    
-    const argsContent = [
-        "-Xmx4096M",
-        "-cp", `${jarPath};${libs}`,
-        "net.minecraft.client.main.Main",
-        "--username", inst.username,
-        "--version", inst.version,
-        "--gameDir", rootPath,
-        "--assetsDir", path.join(rootPath, 'assets'),
-        "--assetIndex", inst.version,
-        "--uuid", "any",
-        "--accessToken", "any",
-        "--versionType", "release"
-    ].join('\n');
-    
-    try {
-        // Створюємо папку інстансу безпечно
-        if (!fs.existsSync(rootPath)) {
-            fs.mkdirSync(rootPath, { recursive: true });
-        }
-        fs.writeFileSync(argsFile, argsContent);
-    } catch (err) {
-        console.error("Помилка створення файлів конфігурації гри:", err);
-        if (win && !win.isDestroyed()) win.show();
-        return;
-    }
-
-    console.log("Запуск через: " + javaPath);
-    
     if (win && !win.isDestroyed()) {
-        win.hide();
+        win.webContents.send('status', 'Завантаження файлів... 0%');
+        win.webContents.send('sub-status', 'Аналіз клієнта гри...');
     }
 
-    // Запуск процесу гри
-    const child = spawn(javaPath, ["@" + argsFile], { cwd: rootPath });
-
-    child.stdout.on('data', (d) => console.log(`MC: ${d}`));
-    child.stderr.on('data', (d) => console.error(`MC_ERR: ${d}`));
-    
-    // Якщо сам процес не зміг запуститися (наприклад, через брак ОЗУ чи збій Windows)
-    child.on('error', (err) => {
-        console.error("Не вдалося запустити процес гри:", err);
-        if (win && !win.isDestroyed()) {
-            win.show();
-            win.webContents.send('status', 'Помилка запуску процесу гри.');
-        }
+    launcher.on('progress', (e) => {
+        if (!win || win.isDestroyed()) return;
+        const percent = ((e.task / e.total) * 100).toFixed(0);
+        win.webContents.send('status', `Завантаження клієнта (${percent}%)...`);
     });
 
-    child.on('close', () => {
-        if (win && !win.isDestroyed()) win.show();
+    launcher.on('download-status', (e) => {
+        if (!win || win.isDestroyed()) return;
+        let taskName = e.type;
+        if (taskName === 'assets') taskName = 'ресурсів гри';
+        if (taskName === 'classes') taskName = 'файлів клієнта';
+        if (taskName === 'libraries') taskName = 'бібліотек Java';
+        if (taskName === 'natives') taskName = 'системних компонентів';
+        
+        win.webContents.send('sub-status', `Скачується: ${taskName}...`);
+    });
+
+    let opts = {
+        authorization: { access_token: "any", client_token: "any", uuid: "any", user_properties: "{}", username: inst.username || "Player" },
+        root: rootPath, // Теперь качает строго в AppData/Roaming/fl-launcher/instances/...
+        version: { 
+            number: cleanVersionNumber, 
+            type: inst.version && inst.version.includes('snapshot') ? "snapshot" : "release" 
+        },
+        memory: { max: "2048M", min: "512M" },
+        javaPath: javaPath,
+        overrides: { detached: false }
+    };
+
+    launcher.launch(opts)
+        .then(() => {
+            if (win && !win.isDestroyed()) {
+                win.webContents.send('status', 'Статус: запуск гри...');
+                win.webContents.send('sub-status', 'Приємної гри!');
+                setTimeout(() => { if (win && !win.isDestroyed()) win.hide(); }, 2000);
+            }
+        })
+        .catch((err) => {
+            console.error("[LAUNCHER_CORE_ERR]:", err);
+            if (win && !win.isDestroyed()) {
+                win.show();
+                win.webContents.send('status', `Статус: помилка запуска.`);
+                win.webContents.send('sub-status', err.message);
+            }
+        });
+
+    launcher.on('data', (d) => {
+        const line = d.toString('utf8').trim();
+        if (line) console.log(`[MC_LOG]: ${line}`);
+    });
+
+    launcher.on('close', (code) => {
+        if (win && !win.isDestroyed()) {
+            win.show();
+            win.webContents.send('status', code === 0 ? 'Статус: готовий' : `Гра вилетіла (Код: ${code})`);
+            win.webContents.send('sub-status', '');
+        }
     });
 }
 

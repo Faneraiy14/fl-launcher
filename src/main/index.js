@@ -17,15 +17,15 @@ function createWindow() {
         } 
     });
     
+    win.setMenu(null); // Повністю прибираємо верхній білий бар меню
     win.loadFile(path.join(__dirname, '../renderer/index.html'));
 
     win.on('closed', () => {
         win = null;
     });
 
-    // Безпечний запуск перевірки оновлень через 3 секунди
     setTimeout(() => {
-        autoUpdater.checkForUpdatesAndNotify().catch(err => console.error("Помилка автооновлення:", err));
+        autoUpdater.checkForUpdatesAndNotify().catch(err => console.error("Помилка автооновлення лаунчера:", err));
     }, 3000);
 }
 
@@ -35,17 +35,13 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('activate', () => {
-    if (win === null) createWindow();
-});
-
-// ОБРОБКА ЗАПИТІВ ІНТЕРФЕЙСУ (IPC)
+// ОБРОБКА ЗАПИТІВ IPC-МОСТУ
 
 ipcMain.handle('get-versions', async () => {
     try {
         return await getVersions();
     } catch (err) {
-        console.error("Помилка отримання версій:", err);
+        console.error("Помилка у мосту get-versions:", err);
         return [];
     }
 });
@@ -54,12 +50,10 @@ ipcMain.handle('get-cfg', () => {
     try {
         return load();
     } catch (err) {
-        console.error("Помилка завантаження конфігу:", err);
         return { installations: [] };
     }
 });
 
-// Збереження нової збірки
 ipcMain.on('save-inst', (e, i) => { 
     try {
         let c = load(); 
@@ -71,7 +65,6 @@ ipcMain.on('save-inst', (e, i) => {
     }
 });
 
-// Видалення збірки
 ipcMain.on('del-inst', (e, name) => { 
     try {
         let c = load(); 
@@ -83,7 +76,6 @@ ipcMain.on('del-inst', (e, name) => {
     }
 });
 
-// Редагування та оновлення збірки
 ipcMain.on('update-inst', (e, d) => { 
     try {
         let c = load(); 
@@ -100,47 +92,23 @@ ipcMain.on('update-inst', (e, d) => {
             e.reply('config-updated');
         }
     } catch (err) {
-        console.error("Помилка оновлення збірки:", err);
+        console.error("Помилка оновлення конфігу:", err);
     }
 });
 
-// Виклик запуску гри з обробкою збоїв
 ipcMain.on('launch', (e, inst) => {
     try {
         if (win) launchGame(inst, win);
     } catch (err) {
-        console.error("Критична помилка запуску гри:", err);
+        console.error("Критична помилка виклику launchGame:", err);
     }
 });
 
-// НАЛАШТУВАННЯ ПОДІЙ АВТООНОВЛЕННЯ
-
-autoUpdater.on('update-available', () => {
-    if (win && win.webContents) win.webContents.send('updater-download-start');
-});
-
-autoUpdater.on('download-progress', (progressObj) => {
-    if (win && win.webContents) {
-        win.webContents.send('updater-download-progress', progressObj.percent.toFixed(1));
-    }
-});
-
+// АВТООНОВЛЕННЯ СЕРВЕРУ
+autoUpdater.on('update-available', () => { if (win && win.webContents) win.webContents.send('updater-download-start'); });
+autoUpdater.on('download-progress', (p) => { if (win && win.webContents) win.webContents.send('updater-download-progress', p.percent.toFixed(1)); });
 autoUpdater.on('update-downloaded', () => {
     if (!win) return;
-    dialog.showMessageBox(win, {
-        type: 'info',
-        title: 'Оновлення готове',
-        message: 'Нову версію лаунчера успішно завантажено. Перезапустити програму, щоб оновитися?',
-        buttons: ['Оновити зараз', 'Пізніше'],
-        defaultId: 0
-    }).then((result) => {
-        if (result.response === 0) {
-            autoUpdater.quitAndInstall();
-        }
-    });
-});
-
-// Відловлювання помилок мережі або доступу при автооновленні
-autoUpdater.on('error', (err) => {
-    console.error("Помилка в модулі electron-updater:", err);
+    dialog.showMessageBox(win, { type: 'info', title: 'Оновлення', message: 'Перезапустити лаунчер для встановлення оновлення?', buttons: ['Оновити', 'Пізніше'], defaultId: 0 })
+    .then((r) => { if (r.response === 0) autoUpdater.quitAndInstall(); });
 });

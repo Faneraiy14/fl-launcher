@@ -1,43 +1,79 @@
-const { ipcRenderer } = require('electron');
+const { ipcRenderer, shell } = require('electron');
+const path = require('path');
+const fs = require('fs');
 let currentInst = null;
+let isLaunching = false; // Глобальний прапорець статусу запуску гри
 
-// Ініціалізація інтерфейсу при старті програми
 async function init() {
+    // ЗАХИСТ: Примусово розблоковуємо весь інтерфейс при старті лаунчера
+    setInterfaceLock(false);
+    
     setupGlobalEvents();
     
     try {
         const versions = await ipcRenderer.invoke('get-versions');
         const verSelect = document.getElementById('ver');
         
-        if (versions && Array.isArray(versions)) {
-            // Фільтруємо лише релізи та додаємо їх у випадаючий список
-            versions.filter(v => v.type === 'release').forEach(v => {
-                verSelect.innerHTML += `<option value="${v.id}">${v.id}</option>`;
+        if (versions && Array.isArray(versions) && versions.length > 0) {
+            verSelect.innerHTML = ""; 
+            
+            // Виводимо АБСОЛЮТНО ВСІ версії від Mojang без жодних обмежень
+            versions.forEach(v => {
+                const typeLabel = v.type === 'release' ? '' : ` (${v.type})`;
+                verSelect.innerHTML += `<option value="${v.id}">${v.id}${typeLabel}</option>`;
             });
+
+            if (verSelect.options.length > 0) verSelect.selectedIndex = 0;
+        } else {
+            // Безпечний локальний список, якщо сервери Mojang недоступні
+            const localReleases = ["1.21.11", "1.21.4", "1.20.4", "1.16.5"];
+            verSelect.innerHTML = "";
+            localReleases.forEach(v => { verSelect.innerHTML += `<option value="${v}">${v}</option>`; });
+            verSelect.selectedIndex = 0;
         }
     } catch (err) {
-        console.error("Не вдалося завантажити список версій:", err);
-        document.getElementById('statusText').innerText = "Статус: Помилка завантаження версій з мережі";
+        console.error("Помилка IPC при завантаженні версій:", err);
     }
 
     loadSidebar();
 }
 
-// Налаштування глобальних подій, які мають створюватися лише ОДИН раз
+// Функція для повного увімкнення або вимкнення інтерфейсу налаштувань
+function setInterfaceLock(lock) {
+    isLaunching = lock; 
+    
+    // Блокуємо/розблоковуємо кнопку створення нової збірки
+    const addBtn = document.getElementById('addBtn');
+    if (addBtn) addBtn.disabled = lock;
+    
+    // Знаходимо всі інпути, селектори та кнопки всередині форми налаштувань і перемикаємо їх
+    const card = document.getElementById('settingsCard');
+    if (card) {
+        const elements = card.querySelectorAll('input, select, button');
+        elements.forEach(el => {
+            el.disabled = lock;
+        });
+    }
+    
+    // Візуально додаємо прозорості списку збірок, щоб показати, що він заблокований
+    const list = document.getElementById('list');
+    if (list) {
+        list.style.opacity = lock ? "0.5" : "1";
+        list.style.pointerEvents = lock ? "none" : "auto"; 
+    }
+}
+
 function setupGlobalEvents() {
     document.getElementById('addBtn').onclick = () => {
-        ipcRenderer.send('save-inst', { 
-            name: `Нова збірка ${Date.now().toString().slice(-4)}`, 
-            version: '1.21.1', 
-            loader: 'Vanilla', 
-            username: 'Player', 
-            customPath: '' 
-        });
+        if (isLaunching) return; 
+        const verSelect = document.getElementById('ver');
+        // Якщо список версій ще не провантажився, ставимо дефолтну робочу версію
+        const defaultVer = verSelect && verSelect.options.length > 0 && verSelect.value ? verSelect.value : '1.21.4';
+        ipcRenderer.send('save-inst', { name: `Збірка ${Date.now().toString().slice(-4)}`, version: defaultVer, loader: 'Vanilla', username: 'Player', customPath: '' });
     };
 
     document.getElementById('saveBtn').onclick = () => {
-        if (!currentInst) return;
-        
+        if (isLaunching || !currentInst) return;
         ipcRenderer.send('update-inst', {
             oldName: currentInst.name,
             name: document.getElementById('editName').value.trim(),
@@ -48,127 +84,142 @@ function setupGlobalEvents() {
         });
     };
 
-    // Слухач кнопки "ГРАТИ" призначається ОДИН раз (усуває баг дублювання процесів)
-    const playBtn = document.getElementById('playBtn');
-    if (playBtn) {
-        playBtn.onclick = () => {
-            if (currentInst) {
-                ipcRenderer.send('launch', currentInst);
-            }
-        };
-    }
-
-    // Закриття контекстного меню при кліку в будь-яке інше місце екрана
-    window.onclick = (e) => { 
-        if (!e.target.matches('.menu-btn')) {
-            const menu = document.getElementById('contextMenu');
-            if (menu) menu.classList.add('hidden'); 
+    document.getElementById('playBtn').onclick = () => { 
+        if (isLaunching) return;
+        if (!currentInst) {
+            alert("Будь ласка, спочатку оберіть або створіть збірку гри ліворуч!");
+            return;
         }
+
+        let finalVersion = document.getElementById('ver').value;
+        if (!finalVersion && currentInst.version) {
+            finalVersion = currentInst.version;
+        }
+
+        const updatedInst = {
+            name: currentInst.name, 
+            username: document.getElementById('user').value.trim() || 'Player',
+            version: finalVersion, 
+            loader: document.getElementById('loader').value,
+            customPath: document.getElementById('customPath').value.trim()
+        };
+
+        if (!updatedInst.version) {
+            alert("Помилка: Не вдалося визначити версію гри. Оберіть її зі списку.");
+            return;
+        }
+
+        setInterfaceLock(true);
+        ipcRenderer.send('launch', updatedInst); 
+    };
+    
+    document.getElementById('folderBtn').onclick = () => {
+        if (isLaunching || !currentInst) return;
+        
+        try {
+            const appDataPath = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME, 'Library', 'Application Support') : path.join(process.env.HOME, '.config'));
+            const instancePath = path.join(appDataPath, 'fl-launcher', 'instances', currentInst.name);
+            
+            if (!fs.existsSync(instancePath)) {
+                fs.mkdirSync(instancePath, { recursive: true });
+            }
+            shell.openPath(instancePath);
+        } catch (err) {
+            console.error("Помилка відкриття папки:", err);
+        }
+    };
+
+    window.onclick = (e) => { 
+        if (isLaunching) return; 
+        if (!e.target.matches('.menu-btn')) { 
+            const m = document.getElementById('contextMenu'); 
+            if (m) m.classList.add('hidden'); 
+        } 
     };
 }
 
-// Функція динамічного рендерингу сайдбару зі збірками
 async function loadSidebar() {
-    const list = document.getElementById('list'); 
-    if (!list) return;
-    
-    list.innerHTML = "";
-    
+    const list = document.getElementById('list'); if (!list) return; list.innerHTML = "";
     try {
         const conf = await ipcRenderer.invoke('get-cfg');
         if (!conf || !conf.installations) return;
-
         conf.installations.forEach(i => {
-            let div = document.createElement('div');
-            div.className = 'inst-item';
+            let div = document.createElement('div'); div.className = 'inst-item';
             div.innerHTML = `<span>${i.name}</span> <button class="menu-btn">⋮</button>`;
             
-            // Натискання на три крапки (тригер контекстного меню)
             div.querySelector('.menu-btn').onclick = (e) => {
-                e.stopPropagation(); // Зупиняємо виклик події натискання на сам div
+                e.stopPropagation(); 
+                if (isLaunching) return; 
                 currentInst = i;
-                const menu = document.getElementById('contextMenu');
-                if (menu) {
-                    menu.style.top = e.clientY + 'px'; 
-                    menu.style.left = e.clientX + 'px'; 
-                    menu.classList.remove('hidden');
-                }
+                const m = document.getElementById('contextMenu');
+                if (m) { m.style.top = e.clientY + 'px'; m.style.left = e.clientX + 'px'; m.classList.remove('hidden'); }
             };
-
-            // Вибір збірки для редагування/запуску
+            
             div.onclick = () => {
-                currentInst = i;
-                
-                const settingsCard = document.getElementById('settingsCard');
-                if (settingsCard) settingsCard.style.display = 'block';
-                
+                if (isLaunching) return; 
+                currentInst = i; document.getElementById('settingsCard').style.display = 'block';
                 document.getElementById('title').innerText = i.name;
                 document.getElementById('editName').value = i.name;
                 document.getElementById('user').value = i.username || 'Player';
-                document.getElementById('ver').value = i.version;
+                
+                const verSelect = document.getElementById('ver');
+                if (verSelect) {
+                    let optionExists = false;
+                    for (let idx = 0; idx < verSelect.options.length; idx++) {
+                        if (verSelect.options[idx].value === i.version) {
+                            optionExists = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!optionExists && i.version) {
+                        const newOpt = document.createElement('option');
+                        newOpt.value = i.version;
+                        newOpt.innerText = i.version;
+                        verSelect.appendChild(newOpt);
+                    }
+                    
+                    verSelect.value = i.version;
+                    
+                    if (verSelect.value !== i.version && verSelect.options.length > 0) {
+                        verSelect.selectedIndex = 0;
+                    }
+                }
+                
                 document.getElementById('loader').value = i.loader || "Vanilla";
                 document.getElementById('customPath').value = i.customPath || "";
+                document.getElementById('statusText').innerText = "Статус: готовий";
+                document.getElementById('subStatusText').innerText = ""; 
             };
-            
             list.appendChild(div);
         });
-    } catch (err) {
-        console.error("Помилка рендерингу сайдбару:", err);
-    }
+    } catch (err) { console.error(err); }
 }
 
-// ГЛОБАЛЬНІ ФУНКЦІЇ ДЛЯ КОНТЕКСТНОГО МЕНЮ (виклик з HTML атрибутів)
 window.delInst = () => { 
-    if (!currentInst) return;
+    if (isLaunching) return;
     ipcRenderer.send('del-inst', currentInst.name); 
-    
     document.getElementById('contextMenu').classList.add('hidden'); 
     document.getElementById('settingsCard').style.display = 'none'; 
-    currentInst = null; // Повністю очищуємо виділення збірки
+    currentInst = null; 
 };
 
 window.editInst = () => { 
-    const settingsCard = document.getElementById('settingsCard');
-    if (settingsCard) settingsCard.style.display = 'block'; 
+    if (isLaunching) return;
+    document.getElementById('settingsCard').style.display = 'block'; 
     document.getElementById('contextMenu').classList.add('hidden'); 
 };
 
-// СЛУХАЧІ СИСТЕМНИХ ПОДІЙ ВІД NODE.JS (MAIN)
+ipcRenderer.on('config-updated', () => { loadSidebar(); });
 
-ipcRenderer.on('config-updated', () => {
-    loadSidebar();
-});
-
-ipcRenderer.on('status', (e, m) => {
-    const statusText = document.getElementById('statusText');
-    if (statusText) statusText.innerText = m;
-});
-
-// ПЕРЕХОПЛЕННЯ ПРОГРЕСУ ОНОВЛЕННЯ
-
-ipcRenderer.on('updater-download-start', () => {
-    if (document.getElementById('updater-progress-container')) return;
-
-    const container = document.createElement('div');
-    container.id = 'updater-progress-container';
-    container.style = 'position:fixed; bottom:15px; right:15px; background:#18181b; border:1px solid #27272a; padding:15px; border-radius:8px; z-index:9999; color:#fff; width:260px; font-family:sans-serif; box-shadow:0 10px 25px rgba(0,0,0,0.5);';
-    container.innerHTML = `
-        <div style="margin-bottom:8px; font-size:13px; font-weight:500;" id="updater-text">Завантаження оновлення... 0%</div>
-        <div style="width:100%; background:#27272a; height:6px; border-radius:3px; overflow:hidden;">
-            <div id="updater-bar" style="width:0%; background:#2ecc71; height:100%; transition: width 0.2s ease;"></div>
-        </div>
-    `;
-    document.body.appendChild(container);
-});
-
-ipcRenderer.on('updater-download-progress', (event, percent) => {
-    const bar = document.getElementById('updater-bar');
-    const text = document.getElementById('updater-text');
-    if (bar && text) {
-        bar.style.width = percent + '%';
-        text.innerText = `Завантаження оновлення... ${percent}%`;
+ipcRenderer.on('status', (e, m) => { 
+    document.getElementById('statusText').innerText = m; 
+    if (m.includes('вилетіла') || m.includes('готовий') || m.includes('помилка') || m.includes('запуск')) {
+        // Додано розблокування при статусі "запуск", якщо вікно не сховалося,
+        // щоб інтерфейс не зависав «намертво» у разі мовчазного крашу Java
+        setInterfaceLock(false);
     }
 });
 
-// Запуск ініціалізації після повного завантаження скрипту
+ipcRenderer.on('sub-status', (e, m) => { document.getElementById('subStatusText').innerText = m; });
 init();

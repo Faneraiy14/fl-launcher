@@ -2,33 +2,22 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fl Fanerkalauncher</title>
+    <title>Fl Launcher</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="app">
-        <!-- ЛЕВАЯ ПАНЕЛЬ (САЙДБАР) -->
         <div class="sidebar">
-            <!-- Фирменный минималистичный логотип лаунчера FL -->
-            <div class="logo-container">
-                <div class="logo-triangle">FL</div>
-                <span class="logo-text">Fl Launcher</span>
-            </div>
-            
+            <div class="logo-container"><div class="logo-triangle">FL</div><span class="logo-text">Fl Launcher</span></div>
             <button id="addBtn">+ Створити збірку</button>
             <div id="list"></div>
         </div>
-
-        <!-- ГЛАВНАЯ ЧАСТЬ (НАСТРОЙКИ И ЗАПУСК) -->
         <div class="main">
             <div class="card" id="settingsCard" style="display:none;">
                 <h2 id="title">Налаштування</h2>
-                
                 <input type="text" id="editName" placeholder="Назва збірки">
                 <input type="text" id="user" placeholder="Ігровий нікнейм">
-                <input type="text" id="customPath" placeholder="Шлях до гри (пусто = дефолт)">
-                
+                <input type="text" id="customPath" placeholder="Дефолт: папка лаунчера /instances">
                 <select id="ver"></select>
                 <select id="loader">
                     <option value="Vanilla">Vanilla</option>
@@ -36,21 +25,18 @@
                     <option value="Forge">Forge</option>
                     <option value="NeoForge">NeoForge</option>
                 </select>
-                
                 <button id="saveBtn">ЗБЕРЕГТИ</button>
+                <button id="folderBtn" style="background:#8e44ad; margin-top: 10px;">ВІДКРИТИ ПАПКУ</button>
                 <button id="playBtn" class="play">ГРАТИ</button>
-                
-                <p id="statusText">Статус: готовий</p>
+                <p id="statusText" style="margin-bottom: 4px;">Статус: готовий</p>
+                <p id="subStatusText" style="margin-top: 0; font-size: 11px; color: #71717a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px;"></p>
             </div>
         </div>
     </div>
-
-    <!-- КОНТЕКСТНОЕ МЕНЮ (ПРАВАЯ КНОПКА МЫШИ) -->
     <div id="contextMenu" class="hidden">
         <button onclick="editInst()">Редагувати</button>
         <button onclick="delInst()" class="del-btn-style">Видалити</button>
     </div>
-
     <script src="app.js"></script>
 </body>
 </html>

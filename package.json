@@ -1,15 +1,15 @@
 {
-  "name": "my-mc-launcher",
-  "version": "1.0.0",
+  "name": "fl-launcher",
+  "version": "1.0.1",
   "main": "src/main/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com"
+    "url": "https://github.com/Faneraiy14/fl-launcher.git"
   },
   "scripts": {
     "start": "electron .",
-    "dist": "rimraf dist && electron-builder",
-    "release": "rimraf dist && electron-builder --publish always"
+    "dist": "taskkill /f /fi \"STATUS eq RUNNING\" /im fl-launcher.exe /im java.exe /im javaw.exe /im electron.exe && rmdir /s /q dist && electron-builder",
+    "release": "taskkill /f /fi \"STATUS eq RUNNING\" /im fl-launcher.exe /im java.exe /im javaw.exe /im electron.exe && rmdir /s /q dist && electron-builder --publish always"
   },
   "dependencies": {
     "electron-updater": "^6.8.3",
@@ -21,8 +21,8 @@
     "rimraf": "^5.0.10"
   },
   "build": {
-    "appId": "com.mymclauncher.app",
-    "productName": "MyMCLauncher",
+    "appId": "com.fllauncher.app",
+    "productName": "fl-launcher",
     "publish": [
       {
         "provider": "github",
