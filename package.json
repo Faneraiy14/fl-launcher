@@ -7,9 +7,9 @@
     "url": "https://github.com/Faneraiy14/fl-launcher.git"
   },
   "scripts": {
-    "start": "electron .",
-    "dist": "taskkill /f /fi \"STATUS eq RUNNING\" /im fl-launcher.exe /im java.exe /im javaw.exe /im electron.exe && rmdir /s /q dist && electron-builder",
-    "release": "taskkill /f /fi \"STATUS eq RUNNING\" /im fl-launcher.exe /im java.exe /im javaw.exe /im electron.exe && rmdir /s /q dist && electron-builder --publish always"
+    "start": "chcp 65001 > nul && electron .",
+    "dist": "(taskkill /f /fi \"STATUS eq RUNNING\" /im fl-launcher.exe /im java.exe /im javaw.exe /im electron.exe 2>nul || echo.>nul) & (if exist dist rmdir /s /q dist) & electron-builder",
+    "release": "(taskkill /f /fi \"STATUS eq RUNNING\" /im fl-launcher.exe /im java.exe /im javaw.exe /im electron.exe 2>nul || echo.>nul) & (if exist dist rmdir /s /q dist) & electron-builder --publish always"
   },
   "dependencies": {
     "electron-updater": "^6.8.3",
@@ -38,15 +38,6 @@
     "directories": {
       "output": "dist"
     },
-    "extraFiles": [
-      {
-        "from": "java",
-        "to": "java",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
     "npmRebuild": false
   }
 }
