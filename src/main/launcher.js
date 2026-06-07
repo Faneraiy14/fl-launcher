@@ -1,240 +1,475 @@
-// ЧАСТИНА 1: Конфігурація та завантаження Java рантайму
-const JAVA_LINKS = {
-    8: "хттпс://г-и-т-х-у-б.сом/adoptium/temurin8-binaries/releases/download/jdk8u412-b08/OpenJDK8U-jdk_x64_windows_hotspot_8u412b08.zip"
-        .replace("хттпс://г-и-т-х-у-б.сом", "https://github.com"),
-    17: "хттпс://г-и-т-х-у-б.сом/adoptium/temurin17-binaries/releases/download/jdk-17.0.11%2B9/OpenJDK17U-jdk_x64_windows_hotspot_17.0.11_9.zip"
-        .replace("хттпс://г-и-т-х-у-б.сом", "https://github.com"),
-    21: "хттпс://г-и-т-х-у-б.сом/adoptium/temurin21-binaries/releases/download/jdk-21.0.3%2B9/OpenJDK21U-jdk_x64_windows_hotspot_21.0.3_9.zip"
-        .replace("хттпс://г-и-т-х-у-б.сом", "https://github.com"),
-    25: "хттпс://г-и-т-х-у-б.сом/adoptium/temurin25-binaries/releases/download/jdk-25.0.3%2B9/OpenJDK25U-jdk_x64_windows_hotspot_25.0.3_9.zip"
-        .replace("хттпс://г-и-т-х-у-б.сом", "https://github.com")
-};
+// ============================================
+// launcher.js (MCLC + TOMATE LOADERS - ПРАЦЮЄ)
+// ============================================
 
-const { app } = require('electron');
 const { Client } = require('minecraft-launcher-core');
+const { fabric, forge, neoforge } = require('tomate-loaders');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const AdmZip = require('adm-zip');
-const axios = require('axios');
 const crypto = require('crypto');
+const { execSync } = require('child_process');
 
-const launcher = new Client();
+// ============ ДОПОМІЖНІ ФУНКЦІЇ ============
 
-function generateOfflineUUID(username) {
-    let hash = crypto.createHash('md5').update("OfflinePlayer:" + username).digest();
-    hash[6] = (hash[6] & 0x0f) | 0x30; 
-    hash[8] = (hash[8] & 0x3f) | 0x80; 
-    return hash.toString('hex').replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
+function send(win, status, sub) {
+    if (!win || win.isDestroyed()) return;
+    try {
+        if (status !== undefined) win.webContents.send('status', status);
+        if (sub !== undefined) win.webContents.send('sub-status', sub);
+    } catch (err) {
+        console.error('[LAUNCHER] send error:', err.message);
+    }
 }
 
-function downloadUrlWithRedirects(url, filePath, win, version) {
+function sendError(win, errorDetails) {
+    if (!win || win.isDestroyed()) return;
+    try {
+        win.webContents.send('launch-error-details', errorDetails);
+        win.webContents.send('status', `❌ ПОМИЛКА: ${errorDetails.shortMessage}`);
+        win.webContents.send('sub-status', errorDetails.details);
+    } catch (err) {
+        console.error('[LAUNCHER] sendError error:', err);
+    }
+}
+
+function formatMB(bytes) {
+    return `${(bytes / 1048576).toFixed(1)} MB`;
+}
+
+function getAppData() {
+    return process.env.APPDATA ||
+        (process.platform === 'darwin'
+            ? path.join(process.env.HOME, 'Library', 'Application Support')
+            : path.join(process.env.HOME, '.config'));
+}
+
+function makeOfflineUUID(username) {
+    const normalized = username.normalize('NFKC');
+    const h = crypto.createHash('md5').update('OfflinePlayer:' + normalized).digest();
+    h[6] = (h[6] & 0x0f) | 0x30;
+    h[8] = (h[8] & 0x3f) | 0x80;
+    return h.toString('hex').replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
+}
+
+function getRequiredJavaMajor(mcVersion) {
+    const version = String(mcVersion || '').trim();
+    
+    if (version.startsWith('1.21')) return 21;
+    if (version.startsWith('1.20')) return 17;
+    if (version.startsWith('1.19')) return 17;
+    if (version.startsWith('1.18')) return 17;
+    if (version.startsWith('1.17')) return 16;
+    
+    const match = version.match(/^(\d+)(?:\.(\d+))?/);
+    if (!match) return 17;
+    const major = parseInt(match[1], 10);
+    const minor = parseInt(match[2] || '0', 10);
+    const releaseLine = major === 1 ? minor : major;
+    
+    if (releaseLine >= 21) return 21;
+    if (releaseLine >= 17) return 17;
+    return 8;
+}
+
+async function fetchJavaDownloadUrl(major) {
+    const os = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux');
+    const arch = (process.platform === 'darwin' && process.arch === 'arm64') ? 'aarch64' : 'x64';
+    const url = `https://api.adoptium.net/v3/assets/latest/${major}/hotspot?architecture=${arch}&image_type=jdk&os=${os}&vendor=eclipse`;
+    
     return new Promise((resolve, reject) => {
-        https.get(url, (res) => {
+        https.get(url, { headers: { 'User-Agent': 'fl-launcher/1.6' }, timeout: 30000 }, (res) => {
+            let data = '';
+            res.on('data', c => data += c);
+            res.on('end', () => {
+                try {
+                    if (!data || data.trim().length === 0) {
+                        reject(new Error(`Adoptium: порожня відповідь для Java ${major}`));
+                        return;
+                    }
+                    const json = JSON.parse(data);
+                    if (!Array.isArray(json) || !json.length) {
+                        reject(new Error(`Adoptium: немає релізів для Java ${major}`));
+                        return;
+                    }
+                    resolve(json[0].binary.package.link);
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        }).on('error', reject);
+    });
+}
+
+function downloadFile(url, dest, onProgress) {
+    return new Promise((resolve, reject) => {
+        const request = https.get(url, { headers: { 'User-Agent': 'fl-launcher/1.6' }, timeout: 60000 }, (res) => {
             if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
-                return downloadUrlWithRedirects(res.headers.location, filePath, win, version).then(resolve).catch(reject);
+                return downloadFile(res.headers.location, dest, onProgress).then(resolve).catch(reject);
             }
             if (res.statusCode !== 200) {
-                return reject(new Error(`Сервер повернув код помилки: ${res.statusCode}`));
+                return reject(new Error(`HTTP ${res.statusCode}`));
             }
-            const fileStream = fs.createWriteStream(filePath);
-            res.pipe(fileStream);
-            fileStream.on('finish', () => {
-                fileStream.close();
-                resolve();
+            const total = parseInt(res.headers['content-length'] || '0', 10);
+            let downloaded = 0;
+            const out = fs.createWriteStream(dest);
+            
+            res.on('data', chunk => {
+                downloaded += chunk.length;
+                if (total > 0 && typeof onProgress === 'function') {
+                    try {
+                        onProgress({ percent: Math.min(100, Math.round(downloaded / total * 100)), downloaded, total });
+                    } catch (progressErr) {}
+                }
             });
-        }).on('error', (err) => reject(err));
+            
+            res.pipe(out);
+            out.on('finish', () => {
+                out.close(() => {
+                    if (typeof onProgress === 'function') {
+                        try {
+                            onProgress({ percent: 100, downloaded: total || downloaded, total: total || downloaded });
+                        } catch (progressErr) {}
+                    }
+                    resolve();
+                });
+            });
+            out.on('error', reject);
+        });
+        request.on('error', reject);
+        request.setTimeout(60000, () => {
+            request.destroy();
+            reject(new Error('Download timeout'));
+        });
     });
 }
 
-function downloadRequiredJava(version, targetPath, win) {
-    return new Promise(async (resolve, reject) => {
-        const binaryName = process.platform === 'win32' ? 'java.exe' : 'java';
-        if (fs.existsSync(targetPath)) {
-            const files = fs.readdirSync(targetPath);
-            const subDir = files.find(f => fs.lstatSync(path.join(targetPath, f)).isDirectory());
-            if (subDir) {
-                const checkedPath = path.join(targetPath, subDir, 'bin', binaryName);
-                if (fs.existsSync(checkedPath)) return resolve(checkedPath);
+async function ensureJava(major, javaDir, win) {
+    const bin = process.platform === 'win32' ? 'java.exe' : 'java';
+    
+    if (fs.existsSync(javaDir)) {
+        try {
+            const entries = fs.readdirSync(javaDir);
+            for (const entry of entries) {
+                try {
+                    const p = path.join(javaDir, entry);
+                    const stat = fs.lstatSync(p);
+                    if (stat.isDirectory()) {
+                        const exe = path.join(p, 'bin', bin);
+                        if (fs.existsSync(exe)) {
+                            return exe;
+                        }
+                    }
+                } catch (e) {}
+            }
+        } catch (e) {}
+    }
+    
+    send(win, `Встановлення Java ${major}...`, 'Запит до Adoptium API...');
+    
+    let dlUrl;
+    try {
+        dlUrl = await fetchJavaDownloadUrl(major);
+    } catch (err) {
+        throw new Error(`Не вдалося отримати посилання на Java ${major}: ${err.message}`);
+    }
+    
+    send(win, `Завантаження Java ${major}... 0%`, 'Це може зайняти кілька хвилин...');
+    fs.mkdirSync(javaDir, { recursive: true });
+    
+    const isWin = process.platform === 'win32';
+    const ext = isWin ? 'zip' : 'tar.gz';
+    const archive = path.join(javaDir, `temp_java${major}.${ext}`);
+    
+    try {
+        await downloadFile(dlUrl, archive, ({ percent, downloaded, total }) => {
+            const detail = total > 0 ? `${formatMB(downloaded)} / ${formatMB(total)}` : `${formatMB(downloaded)}`;
+            send(win, `Завантаження Java ${major}... ${percent}%`, detail);
+        });
+    } catch (err) {
+        try { fs.unlinkSync(archive); } catch (e) {}
+        throw new Error(`Не вдалося завантажити Java ${major}: ${err.message}`);
+    }
+    
+    send(win, `Встановлення Java ${major}...`, 'Розпакування архіву...');
+    
+    try {
+        if (isWin) {
+            const zip = new AdmZip(archive);
+            zip.extractAllTo(javaDir, true);
+        } else {
+            try {
+                execSync(`tar -xzf "${archive}" -C "${javaDir}"`, { stdio: 'pipe', timeout: 120000 });
+            } catch (tarErr) {
+                throw new Error(`Помилка розпакування tar.gz: ${tarErr.message}`);
             }
         }
-        if (win && !win.isDestroyed()) {
-            win.webContents.send('status', `Завантаження модулів (Java ${version})...`);
-            win.webContents.send('sub-status', 'Скачування оригінального бінарного архіву...');
+        try { fs.unlinkSync(archive); } catch (e) {}
+    } catch (err) {
+        try { fs.unlinkSync(archive); } catch (e) {}
+        throw new Error(`Помилка розпакування Java ${major}: ${err.message}`);
+    }
+    
+    try {
+        const entries = fs.readdirSync(javaDir);
+        for (const entry of entries) {
+            try {
+                const p = path.join(javaDir, entry);
+                const stat = fs.lstatSync(p);
+                if (stat.isDirectory()) {
+                    const exe = path.join(p, 'bin', bin);
+                    if (fs.existsSync(exe)) {
+                        return exe;
+                    }
+                }
+            } catch (e) {}
         }
-        fs.mkdirSync(targetPath, { recursive: true });
-        const zipPath = path.join(targetPath, `java${version}.zip`);
-        const url = JAVA_LINKS[version];
-        if (!url) return reject(new Error(`Не знайдено конфігурації посилання для Java ${version}`));
-        try {
-            await downloadUrlWithRedirects(url, zipPath, win, version);
-            if (win && !win.isDestroyed()) win.webContents.send('sub-status', `Розпакування компонентів Java ${version}...`);
-            const zip = new AdmZip(zipPath);
-            zip.extractAllTo(targetPath, true);
-            fs.unlinkSync(zipPath); 
-            const dirs = fs.readdirSync(targetPath);
-            const subDir = dirs.find(d => fs.lstatSync(path.join(targetPath, d)).isDirectory());
-            resolve(path.join(targetPath, subDir, 'bin', binaryName));
-        } catch (e) {
-            if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
-            reject(new Error(`Помилка інсталяції Java: ${e.message}`));
-        }
-    });
+    } catch (err) {
+        throw new Error(`Java ${major} не знайдено після встановлення: ${err.message}`);
+    }
+    
+    throw new Error(`java не знайдено після встановлення Java ${major}`);
 }
-// ЧАСТЬ 2: Функция запуска игры launchGame и экспорт модуля
+
+// ============ ЗАВАНТАЖЕННЯ FABRIC API ============
+
+async function downloadFabricApi(rootPath, mcVersion, win) {
+    const modsDir = path.join(rootPath, 'mods');
+    if (!fs.existsSync(modsDir)) fs.mkdirSync(modsDir, { recursive: true });
+    
+    const fabricApiUrls = {
+        '1.21.10': 'https://mediafilez.forgecdn.net/files/7057/902/fabric-api-0.138.0+1.21.10.jar',
+        '1.21.4': 'https://mediafilez.forgecdn.net/files/6512/775/fabric-api-0.138.0+1.21.4.jar',
+        '1.20.4': 'https://mediafilez.forgecdn.net/files/5580/158/fabric-api-0.96.1+1.20.4.jar',
+        '1.20.1': 'https://mediafilez.forgecdn.net/files/5421/575/fabric-api-0.88.1+1.20.1.jar',
+        '1.19.4': 'https://mediafilez.forgecdn.net/files/5360/965/fabric-api-0.83.1+1.19.4.jar',
+        '1.18.2': 'https://mediafilez.forgecdn.net/files/4707/100/fabric-api-0.60.0+1.18.2.jar',
+        '1.16.5': 'https://mediafilez.forgecdn.net/files/4225/891/fabric-api-0.42.0+1.16.5.jar'
+    };
+    
+    const url = fabricApiUrls[mcVersion] || fabricApiUrls['1.21.10'];
+    const filePath = path.join(modsDir, 'fabric-api.jar');
+    
+    if (fs.existsSync(filePath)) {
+        return true;
+    }
+    
+    send(win, 'Завантаження Fabric API...', '');
+    
+    try {
+        await downloadFile(url, filePath, ({ percent }) => {
+            send(win, `Fabric API... ${percent}%`, '');
+        });
+        console.log('[LAUNCHER] Fabric API завантажено');
+        return true;
+    } catch (err) {
+        console.error('[LAUNCHER] Помилка завантаження Fabric API:', err);
+        return false;
+    }
+}
+
+// ============ ОСНОВНА ФУНКЦІЯ ЗАПУСКУ ============
+
 async function launchGame(inst, win) {
     try {
-        // Логирование для проверки структуры объекта конфигурации
-        console.log("=== ДІАГНОСТИКА ОБ'ЄКТА INST ==="); 
-        console.dir(inst, { depth: null });
+        const loaderType = (inst.loader || 'Vanilla').toLowerCase();
+        const mcVersion = (typeof inst.version === 'object' ? inst.version.id : inst.version || '1.21.4').trim();
+        const rootPath = inst.customPath ? inst.customPath : path.join(getAppData(), 'fl-launcher', 'instances', inst.name);
+        const username = inst.username || 'Player';
 
-        const appDataRoaming = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME, 'Library', 'Application Support') : path.join(process.env.HOME, '.config'));
-        const rootPath = inst.customPath && fs.existsSync(inst.customPath) ? inst.customPath : path.join(appDataRoaming, 'fl-launcher', 'instances', inst.name);
-        
-        const modsPath = path.join(rootPath, 'mods');
-        if (!fs.existsSync(modsPath)) fs.mkdirSync(modsPath, { recursive: true });
+        console.log(`[LAUNCHER] Запуск: ${mcVersion} з ${loaderType}`);
+        send(win, `Підготовка ${loaderType}...`, `Версія ${mcVersion}`);
 
-        const logFilePath = path.join(rootPath, 'latest-mc.log');
-        fs.writeFileSync(logFilePath, `--- FL LAUNCHER LOG SESSION: ${new Date().toISOString()} ---\n`, 'utf8');
+        fs.mkdirSync(path.join(rootPath, 'mods'), { recursive: true });
 
-        let rawVersion = (typeof inst.version === 'object' ? inst.version.id : inst.version) || "1.21.4";
-        
-        let cleanVersionArray = rawVersion.trim().split(' ');
-        let cleanVersionNumber = cleanVersionArray[0]; // Исправлено: теперь берется строка версии
+        const logFile = path.join(rootPath, 'latest-mc.log');
+        fs.writeFileSync(logFile, `--- FL LAUNCHER SESSION: ${new Date().toISOString()} ---\n`, 'utf8');
+        fs.appendFileSync(logFile, `[INFO] Version: ${mcVersion}\n`);
+        fs.appendFileSync(logFile, `[INFO] Loader: ${loaderType}\n`);
+        fs.appendFileSync(logFile, `[INFO] RAM: ${inst.ram} MB\n`);
 
-        if (!cleanVersionNumber) {
-            if (win && !win.isDestroyed()) {
-                win.webContents.send('status', 'Помилка конфігурації.');
-                win.webContents.send('sub-status', 'Не вдалося розпізнати версію!');
-            }
-            return;
-        }
+        const javaMajor = getRequiredJavaMajor(mcVersion);
+        const javaDir = path.join(getAppData(), 'fl-launcher', 'runtime', `java${javaMajor}`);
+        let javaPath = await ensureJava(javaMajor, javaDir, win);
+        console.log(`[LAUNCHER] Java: ${javaPath}`);
+        fs.appendFileSync(logFile, `[INFO] Java path: ${javaPath}\n`);
 
-        let major = 21; 
+        let launchConfig;
+        let loaderDisplayName = 'Vanilla';
 
-        if (cleanVersionNumber.includes('w') || cleanVersionNumber.startsWith('26') || cleanVersionNumber.startsWith('25') || cleanVersionNumber.startsWith('1.22')) {
-            major = 25; 
-        } else {
-            const versionFloat = parseFloat(cleanVersionNumber.split('.').slice(0, 2).join('.'));
-            if (versionFloat < 1.17) major = 8;
-            else if (versionFloat >= 1.17 && versionFloat <= 1.20) major = 17;
-            else if (versionFloat >= 1.21) major = 21; 
-        }
-
-        const runtimeDir = path.join(appDataRoaming, 'fl-launcher', 'runtime', `java${major}`);
-        const javaPath = await downloadRequiredJava(major, runtimeDir, win);
-
-        if (!fs.existsSync(javaPath)) {
-            if (win && !win.isDestroyed()) win.webContents.send('status', 'Статус: помилка, Java не знайдено!');
-            return;
-        }
-
-        if (win && !win.isDestroyed()) {
-            win.webContents.send('status', 'Завантаження файлів... 0%');
-            win.webContents.send('sub-status', 'Аналіз клієнта гри...');
-        }
-
-        let versionOptions = { number: cleanVersionNumber, type: "release" };
-        if (cleanVersionNumber.includes('w') || cleanVersionNumber.includes('pre') || cleanVersionNumber.includes('rc')) {
-            versionOptions.type = "snapshot";
-        }
-
-        if (inst.loader === "Fabric") {
-            if (win && !win.isDestroyed()) win.webContents.send('sub-status', 'Синхронізація пакетів Fabric...');
+        // ============ FABRIC (через tomate-loaders) ============
+        if (loaderType === 'fabric') {
+            loaderDisplayName = 'Fabric';
+            send(win, "Fabric", `Отримання конфігурації для ${mcVersion}...`);
+            
             try {
-                const metaUrl = `https://fabricmc.net{cleanVersionNumber}`;
-                const res = await axios.get(metaUrl);
-                if (res.data && res.data.length > 0) {
-                    const stableLoader = res.data.find(item => item.loader.stable === true) || res.data;
-                    const loaderVersion = stableLoader.loader.version;
-                    versionOptions.custom = `fabric-loader-${loaderVersion}-${cleanVersionNumber}`;
-                }
-            } catch (err) { 
-                console.error("Помилка отримання Fabric метаданих:", err.message); 
-                if (win && !win.isDestroyed()) {
-                    win.webContents.send('status', 'Помилка Fabric');
-                    win.webContents.send('sub-status', 'Не вдалося завантажити метадані версії.');
-                }
-                return;
+                // tomate-loaders сам завантажує та встановлює Fabric
+                launchConfig = await fabric.getMCLCLaunchConfig({
+                    gameVersion: mcVersion,
+                    rootPath: rootPath,
+                });
+                console.log('[LAUNCHER] Fabric конфігурацію отримано');
+                fs.appendFileSync(logFile, `[INFO] Fabric config: ${JSON.stringify(launchConfig)}\n`);
+                
+                // Завантажуємо Fabric API
+                await downloadFabricApi(rootPath, mcVersion, win);
+                
+                send(win, "Fabric готовий", `Версія ${launchConfig.version?.number || mcVersion}`);
+            } catch (err) {
+                console.error('[LAUNCHER] Помилка Fabric:', err);
+                sendError(win, {
+                    shortMessage: 'Помилка Fabric',
+                    details: err.message || 'Не вдалося отримати конфігурацію Fabric'
+                });
+                return null;
             }
         }
+        // ============ FORGE (через tomate-loaders) ============
+        else if (loaderType === 'forge') {
+            loaderDisplayName = 'Forge';
+            send(win, "Forge", `Отримання конфігурації для ${mcVersion}...`);
+            
+            try {
+                launchConfig = await forge.getMCLCLaunchConfig({
+                    gameVersion: mcVersion,
+                    rootPath: rootPath,
+                });
+                console.log('[LAUNCHER] Forge конфігурацію отримано');
+                fs.appendFileSync(logFile, `[INFO] Forge config: ${JSON.stringify(launchConfig)}\n`);
+                send(win, "Forge готовий", `Версія ${launchConfig.version?.number || mcVersion}`);
+            } catch (err) {
+                console.error('[LAUNCHER] Помилка Forge:', err);
+                sendError(win, {
+                    shortMessage: 'Помилка Forge',
+                    details: err.message || 'Не вдалося отримати конфігурацію Forge'
+                });
+                return null;
+            }
+        }
+        // ============ NEOFORGE (через tomate-loaders) ============
+        else if (loaderType === 'neoforge') {
+            loaderDisplayName = 'NeoForge';
+            send(win, "NeoForge", `Отримання конфігурації для ${mcVersion}...`);
+            
+            try {
+                launchConfig = await neoforge.getMCLCLaunchConfig({
+                    gameVersion: mcVersion,
+                    rootPath: rootPath,
+                });
+                console.log('[LAUNCHER] NeoForge конфігурацію отримано');
+                fs.appendFileSync(logFile, `[INFO] NeoForge config: ${JSON.stringify(launchConfig)}\n`);
+                send(win, "NeoForge готовий", `Версія ${launchConfig.version?.number || mcVersion}`);
+            } catch (err) {
+                console.error('[LAUNCHER] Помилка NeoForge:', err);
+                sendError(win, {
+                    shortMessage: 'Помилка NeoForge',
+                    details: err.message || 'Не вдалося отримати конфігурацію NeoForge'
+                });
+                return null;
+            }
+        }
+        // ============ VANILLA ============
+        else {
+            launchConfig = {
+                version: { number: mcVersion, type: 'release' }
+            };
+        }
 
-        launcher.on('progress', (e) => {
-            if (!win || win.isDestroyed()) return;
-            if (!e.total || e.total === 0) return;
-            const percent = ((e.task / e.total) * 100).toFixed(0);
-            win.webContents.send('status', `Завантаження файлів клієнта (${percent}%)...`);
-        });
-
-        launcher.on('download-status', (e) => {
-            if (!win || win.isDestroyed()) return;
-            win.webContents.send('sub-status', `Скачування компонентів гри: [${e.current}/${e.total}]`);
-        });
-
-        const playerUsername = inst.username || "Player";
-        const playerUUID = generateOfflineUUID(playerUsername);
-
-        let opts = {
-            authorization: { 
-                access_token: "any_token", 
-                client_token: "any_token", 
-                uuid: playerUUID, 
-                user_properties: "{}", 
-                username: playerUsername 
+        // ============ ЗАПУСК ЧЕРЕЗ MCLC ============
+        const opts = {
+            authorization: {
+                access_token: 'offline',
+                client_token: 'offline',
+                uuid: makeOfflineUUID(username),
+                user_properties: '{}',
+                username: username,
+                name: username
             },
-            root: rootPath, 
-            version: versionOptions,
-            memory: { max: `${inst.ram || 4096}M`, min: "1024M" }, 
+            root: rootPath,
+            version: launchConfig.version,
+            memory: {
+                max: `${inst.ram || 4096}M`,
+                min: '1024M'
+            },
             javaPath: javaPath,
-            overrides: { detached: false }
+            overrides: {
+                detached: false
+            }
         };
 
-        let hasHiddenWindow = false;
+        console.log('[LAUNCHER] Запуск з версією:', JSON.stringify(launchConfig.version));
+        send(win, `Запуск ${loaderDisplayName}...`, 'Будь ласка, зачекайте');
 
-        launcher.launch(opts)
-            .then(() => {
-                if (win && !win.isDestroyed()) {
-                    win.webContents.send('status', 'Статус: ініціалізація двигуна...');
-                    win.webContents.send('sub-status', 'Очікуйте появу вікна гри...');
-                }
-            })
-            .catch((err) => {
-                fs.appendFileSync(logFilePath, `[LAUNCHER_ERROR]: ${err.message}\n`, 'utf8');
-                if (win && !win.isDestroyed()) {
-                    win.show();
-                    win.webContents.send('status', `Статус: помилка запуска.`);
-                    win.webContents.send('sub-status', err.message);
-                }
-            });
+        const launcher = new Client();
 
-        launcher.on('data', (d) => {
-            const line = d.toString('utf8').trim();
+        launcher.on('progress', ({ task, total }) => {
+            if (total) {
+                const percent = Math.round(task / total * 100);
+                send(win, `Завантаження файлів (${percent}%)...`);
+            }
+        });
+
+        launcher.on('download-status', ({ current, total }) => {
+            const percent = total ? Math.min(100, Math.round(current / total * 100)) : 0;
+            send(win, `Завантаження... ${percent}%`, `[${current}/${total}]`);
+        });
+
+        launcher.on('arguments', args => {
+            const argsStr = args.join(' ');
+            console.log('[LAUNCHER] Аргументи:', argsStr.substring(0, 300));
+            try { fs.appendFileSync(logFile, `[ARGS] ${argsStr}\n`, 'utf8'); } catch(e) {}
+        });
+
+        launcher.on('data', chunk => {
+            const line = chunk.toString('utf8').trim();
             if (line) {
-                fs.appendFileSync(logFilePath, `${line}\n`, 'utf8');
-                if (!hasHiddenWindow && win && !win.isDestroyed()) {
-                    hasHiddenWindow = true;
-                    win.webContents.send('status', 'Статус: гра запущена!');
-                    win.webContents.send('sub-status', 'Приємної гри!');
-                    setTimeout(() => { if (win && !win.isDestroyed()) win.hide(); }, 1500);
-                }
+                console.log('[MINECRAFT]', line.substring(0, 200));
+                try { fs.appendFileSync(logFile, line + '\n', 'utf8'); } catch(e) {}
             }
         });
 
         launcher.on('close', (code) => {
-            fs.appendFileSync(logFilePath, `\n--- GAME CLOSED WITH CODE: ${code} ---\n`, 'utf8');
+            console.log(`[LAUNCHER] Гра закрита з кодом: ${code}`);
+            try { fs.appendFileSync(logFile, `\n--- CLOSED: code ${code} ---\n`, 'utf8'); } catch(e) {}
             if (win && !win.isDestroyed()) {
-                win.show(); 
-                win.webContents.send('status', code === 0 ? 'Статус: готовий' : `Гра закрилася (Код: ${code})`);
-                win.webContents.send('sub-status', code === 0 ? 'Очікуємо наступного запуску.' : 'Перевірте логи гри.');
+                win.show();
+                send(win, code === 0 ? 'Статус: готовий' : `Гра закрилася (Код: ${code})`);
             }
         });
 
-    } catch (globalErr) {
-        console.error(globalErr);
-        if (win && !win.isDestroyed()) {
-            win.webContents.send('status', 'Критична помилка');
-            win.webContents.send('sub-status', globalErr.message);
+        launcher.on('error', (error) => {
+            console.error('[LAUNCHER] Помилка:', error);
+            sendError(win, {
+                shortMessage: 'Помилка запуску',
+                details: error.message || 'Невідома помилка'
+            });
+            if (win && !win.isDestroyed()) win.show();
+        });
+
+        const gameProcess = await launcher.launch(opts);
+
+        if (!gameProcess) {
+            sendError(win, {
+                shortMessage: `${loaderDisplayName} не запустився`,
+                details: 'Не вдалося створити процес. Перевірте логи.'
+            });
+            return null;
         }
+
+        if (win && !win.isDestroyed()) win.hide();
+        send(win, `${loaderDisplayName} запущено!`, 'Гра працює');
+
+        return gameProcess;
+
+    } catch (err) {
+        console.error('[LAUNCHER] Критична помилка:', err);
+        sendError(win, {
+            shortMessage: 'Критична помилка',
+            details: err.message
+        });
+        if (win && !win.isDestroyed()) win.show();
+        return null;
     }
 }
 

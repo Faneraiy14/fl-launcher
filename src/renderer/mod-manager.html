@@ -1,0 +1,466 @@
+<!-- ============================================ -->
+<!-- mod-manager.html (ПОВНІСТЮ ВИПРАВЛЕНО) -->
+<!-- ============================================ -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Менеджер модів</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #121214;
+            color: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            padding: 20px;
+        }
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        h2 {
+            color: #2ecc71;
+            margin-bottom: 20px;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #27272a;
+            padding-bottom: 10px;
+        }
+        .tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            color: #a1a1aa;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .tab:hover {
+            background: #1a1a22;
+        }
+        .tab.active {
+            background: #1a1a22;
+            color: #2ecc71;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .search-area {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .search-input {
+            flex: 1;
+            padding: 12px;
+            background: #1a1a22;
+            border: 1px solid #27272a;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: #2ecc71;
+        }
+        .search-btn {
+            padding: 12px 24px;
+            background: #2ecc71;
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .search-btn:hover:not(:disabled) {
+            background: #27ae60;
+            transform: translateY(-1px);
+        }
+        .search-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .mods-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .mods-grid::-webkit-scrollbar {
+            width: 4px;
+        }
+        .mods-grid::-webkit-scrollbar-track {
+            background: #1a1a22;
+        }
+        .mods-grid::-webkit-scrollbar-thumb {
+            background: #2ecc71;
+            border-radius: 4px;
+        }
+        .mod-card {
+            background: #1a1a22;
+            border: 1px solid #27272a;
+            border-radius: 12px;
+            padding: 15px;
+            transition: all 0.2s;
+        }
+        .mod-card:hover {
+            border-color: #2ecc71;
+            transform: translateY(-2px);
+        }
+        .mod-card h3 {
+            color: #2ecc71;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        .mod-card p {
+            font-size: 12px;
+            color: #a1a1aa;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        .mod-card .author,
+        .mod-card .downloads {
+            font-size: 11px;
+            color: #71717a;
+            margin-bottom: 10px;
+        }
+        .mod-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .mod-btn {
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            border: none;
+            transition: all 0.2s;
+        }
+        .install-btn {
+            background: #2ecc71;
+            color: #fff;
+        }
+        .install-btn:hover:not(:disabled) {
+            background: #27ae60;
+        }
+        .install-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .delete-btn {
+            background: #e74c3c;
+            color: #fff;
+        }
+        .delete-btn:hover {
+            background: #c0392b;
+        }
+        .local-upload {
+            margin-top: 20px;
+            padding: 15px;
+            background: #1a1a22;
+            border: 2px dashed #27272a;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .local-upload:hover {
+            border-color: #2ecc71;
+            background: #1e1e26;
+        }
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            background: #1e2a1e;
+            border-radius: 8px;
+            display: none;
+        }
+        .status.error {
+            background: #3a1a1a;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #71717a;
+        }
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: #71717a;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>📦 Менеджер модів</h2>
+    <div class="tabs">
+        <button class="tab active" data-tab="search">🔍 Пошук</button>
+        <button class="tab" data-tab="installed">✅ Встановлені</button>
+    </div>
+    <div id="searchTab" class="tab-content active">
+        <div class="search-area">
+            <input type="text" id="searchInput" class="search-input" placeholder="Пошук модів...">
+            <button id="searchBtn" class="search-btn">🔍 Шукати</button>
+        </div>
+        <div id="searchResults" class="mods-grid"></div>
+    </div>
+    <div id="installedTab" class="tab-content">
+        <div id="installedMods" class="mods-grid"></div>
+        <div class="local-upload" id="localUpload">
+            📁 Встановити JAR файл
+            <input type="file" id="localFileInput" accept=".jar" style="display:none">
+        </div>
+    </div>
+    <div id="status" class="status"></div>
+</div>
+
+<script>
+    let currentInstance = null;
+    let currentMcVersion = '';
+    let currentLoader = '';
+    let isLoading = false;
+
+    function showStatus(msg, isError) {
+        const statusDiv = document.getElementById('status');
+        if (!statusDiv) return;
+        statusDiv.innerText = msg;
+        statusDiv.className = 'status ' + (isError ? 'error' : '');
+        statusDiv.style.display = 'block';
+        setTimeout(() => {
+            if (statusDiv) statusDiv.style.display = 'none';
+        }, 3000);
+    }
+
+    window.api.on('instance-data', (data) => {
+        currentInstance = data;
+        currentMcVersion = data.version || '';
+        currentLoader = (data.loader === 'Vanilla') ? '' : data.loader.toLowerCase();
+        loadInstalledMods();
+    });
+
+    async function searchMods() {
+        if (isLoading) return;
+        if (currentLoader !== 'fabric') {
+            showStatus('Мод-менеджер тільки для Fabric (автоматичне встановлення)', true);
+            return;
+        }
+        
+        const searchInput = document.getElementById('searchInput');
+        const query = searchInput?.value.trim();
+        if (!query) {
+            showStatus('Введіть запит!', true);
+            return;
+        }
+        
+        isLoading = true;
+        const searchBtn = document.getElementById('searchBtn');
+        if (searchBtn) {
+            searchBtn.disabled = true;
+            searchBtn.innerText = '⏳ Пошук...';
+        }
+        
+        const container = document.getElementById('searchResults');
+        if (container) container.innerHTML = '<div class="loading">⏳ Пошук модів...</div>';
+        
+        try {
+            const mods = await window.api.invoke('search-mods', query);
+            if (!container) return;
+            
+            container.innerHTML = '';
+            if (!mods || mods.length === 0) {
+                container.innerHTML = '<div class="empty">😔 Моди не знайдено</div>';
+            } else {
+                for (const mod of mods) {
+                    const card = document.createElement('div');
+                    card.className = 'mod-card';
+                    card.innerHTML = `
+                        <h3>${escapeHtml(mod.name)}</h3>
+                        <p>${escapeHtml(mod.description?.substring(0, 100) || 'Опис відсутній')}</p>
+                        <div class="author">👤 ${escapeHtml(mod.author || 'Невідомий')}</div>
+                        <div class="downloads">⬇️ ${(mod.downloads || 0).toLocaleString()}</div>
+                        <div class="mod-buttons">
+                            <button class="mod-btn install-btn" data-id="${escapeHtml(mod.id)}" data-name="${escapeHtml(mod.name)}">📥 Встановити</button>
+                        </div>
+                    `;
+                    
+                    const installBtn = card.querySelector('.install-btn');
+                    if (installBtn) {
+                        installBtn.onclick = async (e) => {
+                            const btn = e.target;
+                            const modId = btn.getAttribute('data-id');
+                            const modName = btn.getAttribute('data-name');
+                            
+                            btn.innerText = '⏳ Завантаження...';
+                            btn.disabled = true;
+                            
+                            try {
+                                const versions = await window.api.invoke('get-mod-versions', modId, currentLoader, currentMcVersion);
+                                if (versions && versions.length) {
+                                    const result = await window.api.invoke('download-mod', modId, versions[0].id, currentInstance);
+                                    if (result.success) {
+                                        showStatus(`✅ ${modName} встановлено!`);
+                                        loadInstalledMods();
+                                    } else {
+                                        showStatus(`❌ ${result.error || 'Помилка встановлення'}`, true);
+                                    }
+                                } else {
+                                    showStatus(`❌ Немає сумісних версій для ${currentMcVersion}`, true);
+                                }
+                            } catch (err) {
+                                showStatus(`❌ ${err.message}`, true);
+                            } finally {
+                                btn.innerText = '📥 Встановити';
+                                btn.disabled = false;
+                            }
+                        };
+                    }
+                    container.appendChild(card);
+                }
+            }
+        } catch (err) {
+            if (container) container.innerHTML = '<div class="empty">❌ Помилка пошуку</div>';
+            showStatus('Помилка: ' + err.message, true);
+        } finally {
+            isLoading = false;
+            if (searchBtn) {
+                searchBtn.disabled = false;
+                searchBtn.innerText = '🔍 Шукати';
+            }
+        }
+    }
+
+    async function loadInstalledMods() {
+        const container = document.getElementById('installedMods');
+        if (!container) return;
+        
+        if (!currentInstance) {
+            container.innerHTML = '<div class="loading">Очікування даних збірки...</div>';
+            return;
+        }
+        
+        container.innerHTML = '<div class="loading">⏳ Завантаження встановлених модів...</div>';
+        
+        try {
+            const mods = await window.api.invoke('get-installed-mods', currentInstance);
+            container.innerHTML = '';
+            
+            if (!mods || mods.length === 0) {
+                container.innerHTML = '<div class="empty">📭 Немає встановлених модів</div>';
+            } else {
+                for (const mod of mods) {
+                    const card = document.createElement('div');
+                    card.className = 'mod-card';
+                    card.innerHTML = `
+                        <h3>${escapeHtml(mod.name)}</h3>
+                        <div class="author">📦 ${mod.sizeMB || '0'} MB</div>
+                        <div class="mod-buttons">
+                            <button class="mod-btn delete-btn" data-name="${escapeHtml(mod.name)}">🗑️ Видалити</button>
+                        </div>
+                    `;
+                    
+                    const deleteBtn = card.querySelector('.delete-btn');
+                    if (deleteBtn) {
+                        deleteBtn.onclick = () => {
+                            const modName = deleteBtn.getAttribute('data-name');
+                            if (confirm(`Видалити мод "${modName}"?`)) {
+                                window.api.send('delete-mod', { instance: currentInstance, mod: modName });
+                                window.api.once('mod-deleted', (result) => {
+                                    if (result && result.success) {
+                                        showStatus(`✅ ${modName} видалено!`);
+                                        loadInstalledMods();
+                                    } else {
+                                        showStatus('❌ Помилка видалення', true);
+                                    }
+                                });
+                            }
+                        };
+                    }
+                    container.appendChild(card);
+                }
+            }
+        } catch (err) {
+            container.innerHTML = '<div class="empty">❌ Помилка завантаження</div>';
+            showStatus('Помилка: ' + err.message, true);
+        }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // Налаштування обробників подій після завантаження DOM
+    document.addEventListener('DOMContentLoaded', () => {
+        const searchBtn = document.getElementById('searchBtn');
+        if (searchBtn) searchBtn.onclick = searchMods;
+        
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.onkeypress = (e) => {
+                if (e.key === 'Enter') searchMods();
+            };
+        }
+        
+        const localUpload = document.getElementById('localUpload');
+        const localFileInput = document.getElementById('localFileInput');
+        
+        if (localUpload && localFileInput) {
+            localUpload.onclick = () => localFileInput.click();
+            localFileInput.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (file && file.name.endsWith('.jar')) {
+                    showStatus(`⏳ Встановлення ${file.name}...`);
+                    window.api.send('install-local-mod', { instance: currentInstance, path: file.path });
+                    window.api.once('mod-installed', (result) => {
+                        if (result && result.success) {
+                            showStatus(`✅ ${result.name} встановлено!`);
+                            loadInstalledMods();
+                        } else {
+                            showStatus(`❌ ${result?.error || 'Помилка встановлення'}`, true);
+                        }
+                    });
+                } else if (file) {
+                    showStatus('Виберіть JAR файл!', true);
+                }
+                e.target.value = '';
+            };
+        }
+        
+        const tabs = document.querySelectorAll('.tab');
+        tabs.forEach(tab => {
+            tab.onclick = () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                const tabContents = document.querySelectorAll('.tab-content');
+                tabContents.forEach(tc => tc.classList.remove('active'));
+                
+                const activeTab = tab.getAttribute('data-tab');
+                const activeContent = document.getElementById(activeTab + 'Tab');
+                if (activeContent) activeContent.classList.add('active');
+                
+                if (activeTab === 'installed') {
+                    loadInstalledMods();
+                }
+            };
+        });
+        
+        loadInstalledMods();
+    });
+</script>
+</body>
+</html>

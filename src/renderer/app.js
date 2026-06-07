@@ -1,287 +1,528 @@
-// ЧАСТИНА 1: Ініціалізація, блокування інтерфейсу та глобальні події
-const { ipcRenderer, shell } = require('electron');
-const path = require('path');
-const fs = require('fs');
+// ============================================
+// app.js (ПОВНІСТЮ - З ПОКАЗОМ ВЕРСІЇ)
+// ============================================
+
 let currentInst = null;
 let isLaunching = false;
+let currentSkin = { id: 'steve', name: 'Steve', imageUrl: 'https://minotar.net/helm/steve/100.png' };
+let unsubs = [];
 
-function init() {
-    setInterfaceLock(false);
-    setupGlobalEvents();
-    loadSidebar();
+function escapeHtml(str) { 
+    if (!str) return ''; 
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); 
+}
+
+function cleanup() {
+    if (unsubs && unsubs.length) {
+        unsubs.forEach(fn => {
+            if (fn && typeof fn === 'function') fn();
+        });
+        unsubs.length = 0;
+    }
 }
 
 function setInterfaceLock(lock) {
-    isLaunching = lock; 
+    isLaunching = lock;
+    
     const addBtn = document.getElementById('addBtn');
     if (addBtn) addBtn.disabled = lock;
     
-    const card = document.getElementById('settingsCard');
-    if (card) {
-        const elements = card.querySelectorAll('input, select, button');
-        elements.forEach(el => { el.disabled = lock; });
+    const settingsCard = document.getElementById('settingsCard');
+    if (settingsCard) {
+        const inputs = settingsCard.querySelectorAll('input, select, button');
+        inputs.forEach(el => { if (el) el.disabled = lock; });
     }
     
     const list = document.getElementById('list');
-    if (list) {
-        list.style.opacity = lock ? "0.5" : "1";
-        list.style.pointerEvents = lock ? "none" : "auto"; 
-    }
-
-    const progressContainer = document.querySelector('.progress-container');
-    if (progressContainer) {
-        progressContainer.style.display = lock ? "block" : "none";
+    if (list) { 
+        list.style.opacity = lock ? '0.5' : '1'; 
+        list.style.pointerEvents = lock ? 'none' : 'auto'; 
     }
     
-    if (!lock) {
-        const progressBar = document.getElementById('progressBar');
-        if (progressBar) progressBar.style.width = "0%";
+    const progWrap = document.querySelector('.progress-container');
+    if (progWrap) progWrap.style.display = lock ? 'block' : 'none';
+    
+    if (!lock) { 
+        const bar = document.getElementById('progressBar'); 
+        if (bar) bar.style.width = '0%'; 
     }
 }
+
+async function loadSkins() {
+    try { 
+        const skins = await window.api.invoke('get-skins'); 
+        if (skins && skins.length && currentSkin) { 
+            const found = skins.find(s => s.id === currentSkin.id); 
+            if (found) { 
+                currentSkin = found; 
+                updateSkinPreview(); 
+            } 
+        } 
+    } catch (err) { 
+        console.error('[APP] loadSkins:', err); 
+    }
+}
+
+function updateSkinPreview() { 
+    const img = document.getElementById('skinPreviewImg'); 
+    if (img && currentSkin) { 
+        img.src = currentSkin.imageUrl; 
+        img.alt = currentSkin.name; 
+        img.onerror = () => { 
+            img.src = 'https://minotar.net/helm/steve/50.png'; 
+        }; 
+    } 
+}
+
+function openSkinSelector() { 
+    if (!currentInst) { 
+        alert('Спочатку виберіть збірку!'); 
+        return; 
+    } 
+    window.api.send('open-skin-selector'); 
+}
+
+function openModManager() { 
+    if (!currentInst) { 
+        alert('Спочатку виберіть збірку!'); 
+        return; 
+    } 
+    window.api.send('open-mod-manager', { 
+        name: currentInst.name, 
+        version: currentInst.version, 
+        loader: currentInst.loader, 
+        customPath: currentInst.customPath || '' 
+    }); 
+}
+
+function openOwnerPasswords() { 
+    window.api.send('open-owner-passwords'); 
+}
+
+function readForm() {
+    const nameInput = document.getElementById('editName');
+    const userInput = document.getElementById('user');
+    const passwordInput = document.getElementById('password');
+    const verSelect = document.getElementById('ver');
+    const loaderSelect = document.getElementById('loader');
+    const customPathInput = document.getElementById('customPath');
+    const ramRange = document.getElementById('ramRange');
+    
+    return {
+        name: nameInput?.value?.trim() || '',
+        username: userInput?.value?.trim() || 'Player',
+        password: passwordInput?.value || '',
+        skin: currentSkin.id,
+        version: verSelect?.value || '',
+        loader: loaderSelect?.value || 'Vanilla',
+        customPath: customPathInput?.value?.trim() || '',
+        ram: parseInt(ramRange?.value, 10) || 4096
+    };
+}
+
+function showInstance(inst) {
+    if (!inst) return;
+    
+    currentInst = inst;
+    currentSkin = { 
+        id: inst.skin || 'steve', 
+        name: inst.skin || 'Steve', 
+        imageUrl: `https://minotar.net/helm/${inst.skin || 'steve'}/100.png` 
+    };
+    updateSkinPreview();
+    
+    const settingsCard = document.getElementById('settingsCard');
+    if (settingsCard) settingsCard.style.display = 'block';
+    
+    const title = document.getElementById('title');
+    if (title) title.textContent = inst.name;
+    
+    const editName = document.getElementById('editName');
+    if (editName) editName.value = inst.name;
+    
+    const user = document.getElementById('user');
+    if (user) user.value = inst.username || 'Player';
+    
+    const password = document.getElementById('password');
+    if (password) password.value = inst.password || '';
+    
+    const customPath = document.getElementById('customPath');
+    if (customPath) customPath.value = inst.customPath || '';
+    
+    const loader = document.getElementById('loader');
+    if (loader) loader.value = inst.loader || 'Vanilla';
+    
+    const ram = inst.ram || 4096;
+    const ramRange = document.getElementById('ramRange');
+    const ramLabel = document.getElementById('ramLabel');
+    if (ramRange) ramRange.value = ram;
+    if (ramLabel) ramLabel.textContent = `Виділена пам'ять: ${ram} MB`;
+    
+    const statusText = document.getElementById('statusText');
+    if (statusText) {
+        statusText.textContent = 'Статус: готовий';
+        statusText.style.color = '';
+    }
+    
+    const subStatusText = document.getElementById('subStatusText');
+    if (subStatusText) {
+        subStatusText.textContent = '';
+        subStatusText.style.color = '';
+    }
+    
+    const verSelect = document.getElementById('ver');
+    if (verSelect && inst.version) { 
+        if (![...verSelect.options].some(o => o.value === inst.version)) {
+            verSelect.appendChild(new Option(inst.version, inst.version));
+        }
+        verSelect.value = inst.version; 
+    }
+}
+
+async function loadSidebar() {
+    const list = document.getElementById('list');
+    if (!list) return;
+    
+    list.innerHTML = '';
+    let cfg;
+    try { 
+        cfg = await window.api.invoke('get-cfg'); 
+    } catch (err) { 
+        console.error('[APP] loadSidebar error:', err);
+        cfg = { installations: [] }; 
+    }
+    
+    const installations = cfg?.installations || [];
+    installations.forEach(inst => {
+        const item = document.createElement('div');
+        item.className = 'inst-item';
+        item.innerHTML = `<span>${escapeHtml(inst.name)}</span><button class="menu-btn">⋮</button>`;
+        
+        item.addEventListener('click', (e) => { 
+            if (e.target.classList.contains('menu-btn')) return;
+            if (!isLaunching) showInstance(inst); 
+        });
+        
+        const menuBtn = item.querySelector('.menu-btn');
+        if (menuBtn) {
+            menuBtn.addEventListener('click', (e) => { 
+                e.stopPropagation(); 
+                if (isLaunching) return; 
+                currentInst = inst; 
+                const menu = document.getElementById('contextMenu'); 
+                if (menu) { 
+                    menu.style.top = `${e.clientY}px`; 
+                    menu.style.left = `${e.clientX}px`; 
+                    menu.classList.remove('hidden'); 
+                } 
+            });
+        }
+        
+        list.appendChild(item);
+    });
+}
+
+// ============ ПОКАЗ ВЕРСІЇ ============
+
+function createToastElement() {
+    if (document.getElementById('versionToast')) return;
+    
+    const toast = document.createElement('div');
+    toast.id = 'versionToast';
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: #2ecc71;
+        color: #fff;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: bold;
+        z-index: 9999;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    `;
+    document.body.appendChild(toast);
+}
+
+function showVersionToast(version) {
+    createToastElement();
+    const toast = document.getElementById('versionToast');
+    if (!toast) return;
+    
+    toast.textContent = `FL Launcher v${version}`;
+    toast.style.opacity = '1';
+    
+    setTimeout(() => {
+        toast.style.opacity = '0';
+    }, 2000);
+}
+
+async function checkAndShowVersion() {
+    try {
+        const version = await window.api.invoke('get-app-version');
+        showVersionToast(version);
+    } catch (err) {
+        console.error('[APP] Помилка отримання версії:', err);
+        showVersionToast('1.6.0');
+    }
+}
+
+function showDetailedError(errorDetails) {
+    console.error('[APP] Launch error details:', errorDetails);
+    
+    const statusEl = document.getElementById('statusText');
+    const subStatusEl = document.getElementById('subStatusText');
+    
+    if (statusEl) {
+        statusEl.innerHTML = `❌ ПОМИЛКА: ${errorDetails.shortMessage || 'Невідома помилка'}`;
+        statusEl.style.color = '#e74c3c';
+        statusEl.style.fontWeight = 'bold';
+    }
+    
+    if (subStatusEl) {
+        subStatusEl.innerHTML = errorDetails.details || 'Немає додаткової інформації';
+        subStatusEl.style.color = '#e74c3c';
+        subStatusEl.style.fontSize = '12px';
+    }
+    
+    if (errorDetails.stepLog && errorDetails.stepLog.length) {
+        console.group('📋 ДЕТАЛЬНИЙ ЛОГ ЗАПУСКУ');
+        errorDetails.stepLog.forEach(step => {
+            const icon = step.success ? '✅' : '❌';
+            console.log(`${icon} ${step.step}: ${step.details}`);
+        });
+        console.groupEnd();
+    }
+    
+    if (errorDetails.stack) {
+        console.error('📚 Stack trace:', errorDetails.stack);
+    }
+    
+    setTimeout(() => {
+        setInterfaceLock(false);
+    }, 500);
+}
+
+// ============ НАЛАШТУВАННЯ ПОДІЙ ============
 
 function setupGlobalEvents() {
     const ramRange = document.getElementById('ramRange');
     const ramLabel = document.getElementById('ramLabel');
     if (ramRange && ramLabel) {
-        ramRange.oninput = () => {
-            ramLabel.innerText = `Виділена пам'ять: ${ramRange.value} MB`;
-        };
+        ramRange.addEventListener('input', function () { 
+            ramLabel.textContent = `Виділена пам'ять: ${this.value} MB`; 
+        });
     }
-
-    // Створення нової випадкової збірки з унікальним чотиризначним ID
-    document.getElementById('addBtn').onclick = () => {
-        if (isLaunching) return; 
-        const verSelect = document.getElementById('ver');
-        let defaultVer = '1.21.4'; 
-        
-        if (verSelect && verSelect.options && verSelect.options.length > 0) {
-            defaultVer = verSelect.options[0].value; 
-        }
-        
-        ipcRenderer.send('save-inst', { 
-            name: `Збірка ${Date.now().toString().slice(-4)}`, 
-            version: defaultVer, 
-            loader: 'Vanilla', 
-            username: 'Player', 
-            customPath: '',
-            ram: 4096 
-        });
-    };
-
-    // Окрема помаранчева кнопка збереження налаштувань користувачем
-    document.getElementById('saveBtn').onclick = () => {
-        if (isLaunching || !currentInst) return;
-        const newName = document.getElementById('editName').value.trim();
-        if (!newName) {
-            alert("Помилка: Назва збірки не може бути порожньою!");
-            return;
-        }
-        ipcRenderer.send('update-inst', {
-            oldName: currentInst.name,
-            name: newName,
-            username: document.getElementById('user').value.trim(),
-            version: document.getElementById('ver').value,
-            loader: document.getElementById('loader').value,
-            customPath: document.getElementById('customPath').value.trim(),
-            ram: parseInt(document.getElementById('ramRange').value) || 4096
-        });
-        document.getElementById('settingsCard').style.display = 'none';
-        currentInst = null;
-    };
-    // Головна кнопка "ГРАТИ" з автоматичним збереженням перед запуском
-    document.getElementById('playBtn').onclick = () => { 
-        if (isLaunching) return;
-        if (!currentInst) {
-            alert("Будь ласка, спочатку оберіть або створить збірку гри ліворуч!");
-            return;
-        }
-
-        // 1. Зчитуємо назву збірки прямо з поля введення, щоб уникнути багів зі старими або випадковими іменами
-        const activeName = document.getElementById('editName').value.trim();
-        if (!activeName) {
-            alert("Помилка: Назва збірки не може бути порожньою!");
-            return;
-        }
-
-        let finalVersion = document.getElementById('ver').value;
-        if (!finalVersion && currentInst.version) {
-            finalVersion = currentInst.version;
-        }
-
-        // 2. Збираємо 100% актуальний об'єкт даних із поточних полей інтерфейсу
-        const updatedInst = {
-            oldName: currentInst.name, // Потрібно для бекенду, якщо назву було змінено в інпуті
-            name: activeName, 
-            username: document.getElementById('user').value.trim() || 'Player',
-            version: finalVersion, 
-            loader: document.getElementById('loader').value,
-            customPath: document.getElementById('customPath').value.trim(),
-            ram: parseInt(document.getElementById('ramRange').value) || 4096
-        };
-
-        if (!updatedInst.version) {
-            alert("Помилка: Не вдалося визначити версію гри.");
-            return;
-        }
-
-        // 3. Автозбереження: оновлюємо конфігурацію в JSON перед самим стартом гри
-        ipcRenderer.send('update-inst', updatedInst);
-
-        // 4. Синхронізуємо локальне ім'я профілю з новим значенням
-        currentInst.name = updatedInst.name;
-
-        // 5. Блокуємо елементи управління і відправляємо гру на запуск
-        setInterfaceLock(true);
-        ipcRenderer.send('launch', updatedInst); 
-    };
     
-    document.getElementById('folderBtn').onclick = () => {
-        if (isLaunching || !currentInst) return;
-        try {
-            const appDataPath = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME, 'Library', 'Application Support') : path.join(process.env.HOME, '.config'));
-            const instancePath = currentInst.customPath && fs.existsSync(currentInst.customPath) ? currentInst.customPath : path.join(appDataPath, 'fl-launcher', 'instances', currentInst.name);
-            if (!fs.existsSync(instancePath)) { fs.mkdirSync(instancePath, { recursive: true }); }
-            shell.openPath(instancePath);
-        } catch (err) { console.error(err); }
-    };
+    const addBtn = document.getElementById('addBtn');
+    if (addBtn) {
+        addBtn.addEventListener('click', () => { 
+            if (isLaunching) return; 
+            const verSelect = document.getElementById('ver'); 
+            const defaultVersion = verSelect?.options[0]?.value || '1.21.10';
+            window.api.send('save-inst', { 
+                name: `Збірка ${Date.now().toString().slice(-4)}`, 
+                version: defaultVersion, 
+                loader: 'Vanilla', 
+                username: 'Player', 
+                password: '', 
+                skin: 'steve', 
+                customPath: '', 
+                ram: 4096 
+            }); 
+        });
+    }
+    
+    const saveBtn = document.getElementById('saveBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => { 
+            if (isLaunching || !currentInst) return; 
+            const form = readForm(); 
+            if (!form.name) { 
+                alert('Назва збірки не може бути порожньою!'); 
+                return; 
+            } 
+            window.api.send('update-inst', { oldName: currentInst.name, ...form }); 
+            const settingsCard = document.getElementById('settingsCard');
+            if (settingsCard) settingsCard.style.display = 'none'; 
+            currentInst = null; 
+        });
+    }
+    
+    const playBtn = document.getElementById('playBtn');
+    if (playBtn) {
+        playBtn.addEventListener('click', () => { 
+            if (isLaunching) return; 
+            if (!currentInst) { 
+                alert('Спочатку оберіть або створіть збірку!'); 
+                return; 
+            } 
+            const form = readForm(); 
+            if (!form.name) { 
+                alert('Назва збірки не може бути порожньою!'); 
+                return; 
+            } 
+            if (!form.version) { 
+                alert('Не вдалося визначити версію гри.'); 
+                return; 
+            } 
+            window.api.send('update-inst', { oldName: currentInst.name, ...form }); 
+            currentInst.name = form.name; 
+            setInterfaceLock(true); 
+            window.api.send('launch', form); 
+        });
+    }
+    
+    const folderBtn = document.getElementById('folderBtn');
+    if (folderBtn) {
+        folderBtn.addEventListener('click', () => { 
+            if (!currentInst) return; 
+            window.api.send('open-game-folder', readForm()); 
+        });
+    }
+    
+    const logBtn = document.getElementById('logBtn');
+    if (logBtn) {
+        logBtn.addEventListener('click', () => { 
+            if (!currentInst) return; 
+            window.api.send('open-game-log', readForm()); 
+        });
+    }
+    
+    const modsBtn = document.getElementById('modsBtn');
+    if (modsBtn) modsBtn.addEventListener('click', openModManager);
+    
+    const changeSkinBtn = document.getElementById('changeSkinBtn');
+    if (changeSkinBtn) changeSkinBtn.addEventListener('click', openSkinSelector);
+    
+    const aboutBtnSidebar = document.getElementById('aboutBtnSidebar');
+    if (aboutBtnSidebar) aboutBtnSidebar.addEventListener('click', () => { window.api.send('show-about-dialog'); });
+    
+    const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
+    if (checkUpdatesBtn) {
+        checkUpdatesBtn.addEventListener('click', () => { 
+            checkAndShowVersion();
+            window.api.send('check-for-updates'); 
+        });
+    }
+    
+    const showVersionBtn = document.getElementById('showVersionBtn');
+    if (showVersionBtn) {
+        showVersionBtn.addEventListener('click', checkAndShowVersion);
+    }
+    
+    const ownerPassBtn = document.getElementById('ownerPassBtn');
+    if (ownerPassBtn) ownerPassBtn.addEventListener('click', openOwnerPasswords);
+    
+    const editInstBtn = document.getElementById('editInstBtn');
+    if (editInstBtn) {
+        editInstBtn.addEventListener('click', () => {
+            if (isLaunching || !currentInst) return;
+            showInstance(currentInst);
+            const menu = document.getElementById('contextMenu');
+            if (menu) menu.classList.add('hidden');
+        });
+    }
+    
+    const delInstBtn = document.getElementById('delInstBtn');
+    if (delInstBtn) {
+        delInstBtn.addEventListener('click', () => {
+            if (isLaunching || !currentInst) return;
+            window.api.send('del-inst', currentInst.name);
+            const menu = document.getElementById('contextMenu');
+            if (menu) menu.classList.add('hidden');
+            const settingsCard = document.getElementById('settingsCard');
+            if (settingsCard) settingsCard.style.display = 'none';
+            currentInst = null;
+        });
+    }
+    
+    window.addEventListener('click', (e) => { 
+        if (!e.target.closest('.menu-btn') && !e.target.closest('.context-menu')) {
+            const menu = document.getElementById('contextMenu');
+            if (menu) menu.classList.add('hidden');
+        }
+    });
+}
 
-    document.getElementById('logBtn').onclick = () => {
-        if (!currentInst) return;
-        try {
-            const appDataPath = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME, 'Library', 'Application Support') : path.join(process.env.HOME, '.config'));
-            const logPath = path.join(appDataPath, 'fl-launcher', 'instances', currentInst.name, 'latest-mc.log');
-            if (fs.existsSync(logPath)) {
-                shell.openPath(logPath);
-            } else {
-                alert("Файл логів ще не створено. Запустіть гру хоча б один раз!");
-            }
-        } catch (err) { console.error(err); }
-    };
+// ============ ІНІЦІАЛІЗАЦІЯ ============
 
-    window.onclick = (e) => { 
-        if (isLaunching) return; 
-        if (!e.target.matches('.menu-btn')) { 
-            const m = document.getElementById('contextMenu'); 
-            if (m) m.classList.add('hidden'); 
+function init() {
+    cleanup();
+    setInterfaceLock(false);
+    setupGlobalEvents();
+    loadSidebar();
+    loadSkins();
+    
+    unsubs.push(window.api.on('config-updated', () => {
+        loadSidebar();
+    }));
+    
+    unsubs.push(window.api.on('init-versions-data', (versions) => { 
+        const sel = document.getElementById('ver'); 
+        if (!sel) return; 
+        sel.innerHTML = ''; 
+        if (versions && versions.length) { 
+            versions.forEach(v => { 
+                const label = v.type === 'release' ? v.id : `${v.id} (${v.type})`; 
+                sel.appendChild(new Option(label, v.id)); 
+            }); 
+        } else { 
+            ['1.21.10', '1.21.4', '1.20.4', '1.16.5'].forEach(v => sel.appendChild(new Option(v, v))); 
         } 
-    };
-}
-
-async function loadSidebar() {
-    const list = document.getElementById('list'); if (!list) return; list.innerHTML = "";
-    try {
-        const conf = await ipcRenderer.invoke('get-cfg');
-        if (!conf || !conf.installations) return;
-        conf.installations.forEach(i => {
-            let div = document.createElement('div'); div.className = 'inst-item';
-            div.innerHTML = `<span>${i.name}</span> <button class="menu-btn">⋮</button>`;
-            
-            div.querySelector('.menu-btn').onclick = (e) => {
-                e.stopPropagation(); 
-                if (isLaunching) return; 
-                currentInst = i;
-                const m = document.getElementById('contextMenu');
-                if (m) { m.style.top = e.clientY + 'px'; m.style.left = e.clientX + 'px'; m.classList.remove('hidden'); }
-            };
-            
-            div.onclick = () => {
-                if (isLaunching) return; 
-                currentInst = i; document.getElementById('settingsCard').style.display = 'block';
-                document.getElementById('title').innerText = i.name;
-                document.getElementById('editName').value = i.name;
-                document.getElementById('user').value = i.username || 'Player';
-                
-                const verSelect = document.getElementById('ver');
-                if (verSelect && i.version) {
-                    let hasOption = false;
-                    for (let idx = 0; idx < verSelect.options.length; idx++) {
-                        if (verSelect.options[idx].value === i.version) { hasOption = true; break; }
-                    }
-                    if (!hasOption) {
-                        const temporaryOpt = document.createElement('option');
-                        temporaryOpt.value = i.version; temporaryOpt.innerText = i.version;
-                        verSelect.appendChild(temporaryOpt);
-                    }
-                    verSelect.value = i.version;
-                }
-                
-                document.getElementById('loader').value = i.loader || "Vanilla";
-                document.getElementById('customPath').value = i.customPath || "";
-                
-                const savedRam = i.ram || 4096;
-                document.getElementById('ramRange').value = savedRam;
-                document.getElementById('ramLabel').innerText = `Виділена пам'ять: ${savedRam} MB`;
-
-                document.getElementById('statusText').innerText = "Статус: готовий";
-                document.getElementById('subStatusText').innerText = ""; 
-            };
-            list.appendChild(div);
-        });
-    } catch (err) { console.error(err); }
-}
-
-window.delInst = () => { 
-    if (isLaunching) return;
-    ipcRenderer.send('del-inst', currentInst.name); 
-    document.getElementById('contextMenu').classList.add('hidden'); 
-    document.getElementById('settingsCard').style.display = 'none'; 
-    currentInst = null; 
-};
-
-window.editInst = () => { 
-    if (isLaunching) return;
-    document.getElementById('settingsCard').style.display = 'block'; 
-    document.getElementById('contextMenu').classList.add('hidden'); 
-};
-
-ipcRenderer.on('config-updated', () => { loadSidebar(); });
-
-ipcRenderer.on('init-versions-data', (e, versions) => {
-    const verSelect = document.getElementById('ver');
-    if (!verSelect) return;
+        sel.selectedIndex = 0; 
+        if (currentInst && currentInst.version) { 
+            if (![...sel.options].some(o => o.value === currentInst.version)) {
+                sel.appendChild(new Option(currentInst.version, currentInst.version));
+            }
+            sel.value = currentInst.version; 
+        } 
+    }));
     
-    if (versions && Array.isArray(versions) && versions.length > 0) {
-        verSelect.innerHTML = ""; 
-        versions.forEach(v => {
-            const typeLabel = v.type === 'release' ? '' : ` (${v.type})`;
-            verSelect.innerHTML += `<option value="${v.id}">${v.id}${typeLabel}</option>`;
-        });
-        
-        if (verSelect.options.length > 0) {
-            verSelect.selectedIndex = 0;
-            verSelect.value = verSelect.options[0].value;
+    unsubs.push(window.api.on('status', (msg) => { 
+        const el = document.getElementById('statusText'); 
+        if (el) {
+            if (!msg.includes('ПОМИЛКА') && !msg.includes('помилка')) {
+                el.style.color = '';
+            }
+            el.textContent = msg; 
         }
-    } else {
-        const localReleases = ["1.21.4", "1.20.4", "1.16.5"];
-        verSelect.innerHTML = "";
-        localReleases.forEach(v => { verSelect.innerHTML += `<option value="${v}">${v}</option>`; });
-        verSelect.selectedIndex = 0;
-    }
-    
-    if (currentInst && currentInst.version) {
-        verSelect.value = currentInst.version;
-    }
-});
-
-ipcRenderer.on('status', (e, message) => { 
-    const statusText = document.getElementById('statusText');
-    if (statusText) statusText.innerText = message;
-
-    const match = message.match(/(\d+)%/);
-    if (match) {
-        const percent = match[1]; 
+        const match = msg.match(/(\d+)%/); 
         const progressBar = document.getElementById('progressBar');
-        if (progressBar) progressBar.style.width = `${percent}%`;
-    }
+        if (match && progressBar) progressBar.style.width = `${match[1]}%`; 
+        if (msg && (msg.toLowerCase().includes('готовий') || msg.toLowerCase().includes('помилка') || msg.toLowerCase().includes('закрилася'))) {
+            setInterfaceLock(false);
+        }
+    }));
+    
+    unsubs.push(window.api.on('sub-status', (msg) => { 
+        const el = document.getElementById('subStatusText'); 
+        if (el) {
+            if (msg && msg.includes('помилка')) {
+                el.style.color = '#e74c3c';
+            } else {
+                el.style.color = '';
+            }
+            el.textContent = msg; 
+        }
+    }));
+    
+    unsubs.push(window.api.on('skin-updated', (skin) => { 
+        currentSkin = skin; 
+        updateSkinPreview(); 
+    }));
+    
+    unsubs.push(window.api.on('launch-error-details', (errorDetails) => {
+        showDetailedError(errorDetails);
+    }));
+}
 
-    if (message.includes('готовий') || message.includes('помилка') || message.includes('закрилися')) {
-        setInterfaceLock(false);
-    }
-});
-
-ipcRenderer.on('sub-status', (e, subMessage) => {
-    const subStatusText = document.getElementById('subStatusText');
-    if (subStatusText) subStatusText.innerText = subMessage;
-});
-
-document.addEventListener('DOMContentLoaded', init);
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}

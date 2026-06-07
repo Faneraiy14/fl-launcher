@@ -1,0 +1,278 @@
+<!-- ============================================ -->
+<!-- skin-selector.html (ПОВНІСТЮ ВИПРАВЛЕНО) -->
+<!-- ============================================ -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Вибір скіна</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #121214;
+            color: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h2 {
+            color: #2ecc71;
+            margin-bottom: 20px;
+        }
+        .skin-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .skin-grid::-webkit-scrollbar {
+            width: 4px;
+        }
+        .skin-grid::-webkit-scrollbar-track {
+            background: #1a1a22;
+        }
+        .skin-grid::-webkit-scrollbar-thumb {
+            background: #2ecc71;
+            border-radius: 4px;
+        }
+        .skin-card {
+            background: #1a1a22;
+            border: 2px solid #27272a;
+            border-radius: 12px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .skin-card:hover {
+            border-color: #2ecc71;
+            transform: translateY(-2px);
+        }
+        .skin-card.selected {
+            border-color: #2ecc71;
+            background: #1e2a1e;
+            box-shadow: 0 0 15px rgba(46,204,113,0.3);
+        }
+        .skin-card img {
+            width: 64px;
+            height: 64px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            object-fit: cover;
+        }
+        .skin-card .name {
+            font-size: 11px;
+            color: #a1a1aa;
+            word-break: break-word;
+        }
+        .upload-area {
+            background: #1a1a22;
+            border: 2px dashed #27272a;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: all 0.2s;
+        }
+        .upload-area:hover {
+            border-color: #2ecc71;
+            background: #1e1e26;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #2ecc71;
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: #27ae60;
+            transform: translateY(-1px);
+        }
+        .btn-secondary {
+            background: #27272a;
+            color: #fff;
+        }
+        .btn-secondary:hover {
+            background: #3f3f46;
+        }
+        .delete-custom {
+            background: #e74c3c;
+            color: #fff;
+            margin-top: 5px;
+            padding: 4px 8px;
+            font-size: 10px;
+            width: 100%;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .delete-custom:hover {
+            background: #c0392b;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>🎨 Вибір скіна</h2>
+    <div class="skin-grid" id="skinGrid"></div>
+    <div class="upload-area" id="uploadArea">
+        📁 Натисніть або перетягніть PNG файл
+        <input type="file" id="fileInput" accept="image/png" style="display:none">
+    </div>
+    <div class="buttons">
+        <button class="btn-primary" id="saveBtn">✅ Вибрати скін</button>
+        <button class="btn-secondary" id="cancelBtn">❌ Скасувати</button>
+    </div>
+</div>
+
+<script>
+    let selectedSkin = null;
+    let skins = [];
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    async function loadSkins() {
+        try {
+            skins = await window.api.invoke('get-skins');
+            renderSkins();
+        } catch (err) {
+            console.error('[SKIN_SELECTOR] loadSkins error:', err);
+        }
+    }
+
+    function renderSkins() {
+        const grid = document.getElementById('skinGrid');
+        if (!grid) return;
+        
+        grid.innerHTML = '';
+        
+        for (const skin of skins) {
+            const card = document.createElement('div');
+            card.className = 'skin-card';
+            if (selectedSkin && selectedSkin.id === skin.id) {
+                card.classList.add('selected');
+            }
+            
+            card.innerHTML = `
+                <img src="${escapeHtml(skin.imageUrl)}" onerror="this.src='https://minotar.net/helm/steve/64.png'" alt="${escapeHtml(skin.name)}">
+                <div class="name">${escapeHtml(skin.name)}</div>
+                ${skin.isCustom ? '<button class="delete-custom" data-id="' + escapeHtml(skin.id) + '">🗑️ Видалити</button>' : ''}
+            `;
+            
+            card.onclick = (e) => {
+                if (e.target.classList.contains('delete-custom')) return;
+                selectedSkin = skin;
+                renderSkins();
+            };
+            
+            const delBtn = card.querySelector('.delete-custom');
+            if (delBtn) {
+                delBtn.onclick = async (e) => {
+                    e.stopPropagation();
+                    const skinId = delBtn.getAttribute('data-id');
+                    if (confirm(`Видалити скін "${skin.name}"?`)) {
+                        window.api.send('delete-custom-skin', skinId);
+                    }
+                };
+            }
+            
+            grid.appendChild(card);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const saveBtn = document.getElementById('saveBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        
+        if (uploadArea && fileInput) {
+            uploadArea.onclick = () => fileInput.click();
+            
+            fileInput.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (file && file.type === 'image/png') {
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                        const skinId = `custom_${Date.now()}`;
+                        window.api.send('save-custom-skin', { skinId, base64: event.target.result });
+                    };
+                    reader.readAsDataURL(file);
+                } else if (file) {
+                    alert('Виберіть PNG файл!');
+                }
+                e.target.value = '';
+            };
+        }
+        
+        if (saveBtn) {
+            saveBtn.onclick = () => {
+                if (selectedSkin) {
+                    window.api.send('update-skin', selectedSkin);
+                }
+                window.close();
+            };
+        }
+        
+        if (cancelBtn) {
+            cancelBtn.onclick = () => window.close();
+        }
+        
+        window.api.on('skin-saved', async (result) => {
+            if (!result || !result.success) {
+                alert(result?.error || 'Помилка збереження скіна');
+                return;
+            }
+            await loadSkins();
+            if (selectedSkin === null && skins.length) {
+                selectedSkin = skins.find(s => s.id === result.skinId) || skins[0];
+            } else if (result.skinId) {
+                const newSkin = skins.find(s => s.id === result.skinId);
+                if (newSkin) selectedSkin = newSkin;
+            }
+            renderSkins();
+        });
+        
+        window.api.on('skin-deleted', async (result) => {
+            if (!result || !result.success) {
+                alert('Помилка видалення скіна');
+                return;
+            }
+            if (selectedSkin && selectedSkin.id === result.skinId) {
+                selectedSkin = null;
+            }
+            await loadSkins();
+        });
+        
+        loadSkins();
+    });
+</script>
+</body>
+</html>

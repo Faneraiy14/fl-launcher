@@ -1,43 +1,26 @@
 {
   "name": "fl-launcher",
-  "version": "1.0.1",
+  "version": "1.6.0",
+  "description": "FL Launcher - сучасний лаунчер для Minecraft",
+  "author": "Faneraiy14",
   "main": "src/main/index.js",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Faneraiy14/fl-launcher.git"
-  },
   "scripts": {
     "start": "chcp 65001 > nul && electron .",
-    "dist": "(taskkill /f /fi \"STATUS eq RUNNING\" /im fl-launcher.exe /im java.exe /im javaw.exe /im electron.exe 2>nul || echo.>nul) & (if exist dist rmdir /s /q dist) & electron-builder",
-    "release": "(taskkill /f /fi \"STATUS eq RUNNING\" /im fl-launcher.exe /im java.exe /im javaw.exe /im electron.exe 2>nul || echo.>nul) & (if exist dist rmdir /s /q dist) & electron-builder --publish always"
+    "kill": "taskkill /F /IM electron.exe 2>nul & taskkill /F /IM fl-launcher.exe 2>nul & exit 0",
+    "clean": "if exist dist rmdir /s /q dist 2>nul & exit 0",
+    "pre-release": "npm run kill && npm run clean",
+    "dist": "electron-builder",
+    "release": "npm run pre-release && electron-builder --publish always"
   },
   "dependencies": {
+    "adm-zip": "^0.5.17",
+    "axios": "^1.17.0",
     "electron-updater": "^6.8.3",
-    "minecraft-launcher-core": "^3.0.0"
+    "minecraft-launcher-core": "^3.18.2",
+    "tomate-loaders": "^2.0.2"
   },
   "devDependencies": {
-    "electron": "^29.0.0",
-    "electron-builder": "^26.8.1",
-    "rimraf": "^5.0.10"
-  },
-  "build": {
-    "appId": "com.fllauncher.app",
-    "productName": "fl-launcher",
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "Faneraiy14",
-        "repo": "fl-launcher"
-      }
-    ],
-    "win": {
-      "target": [
-        "nsis"
-      ]
-    },
-    "directories": {
-      "output": "dist"
-    },
-    "npmRebuild": false
+    "electron": "41.3.0",
+    "electron-builder": "^26.8.1"
   }
 }

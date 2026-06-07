@@ -3,86 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fl Launcher</title>
+    <title>FL Launcher</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="app">
-        <!-- ЛІВА ПАНЕЛЬ (САЙДБАР) -->
         <div class="sidebar">
             <div class="logo-container">
                 <div class="logo-triangle">FL</div>
-                <span class="logo-text">Fl Launcher</span>
+                <span class="logo-text">FL Launcher</span>
             </div>
             <button id="addBtn">+ Створити збірку</button>
             <div id="list"></div>
+            <div class="sidebar-footer">
+                <button id="checkUpdatesBtn" class="sidebar-update">🔄 Перевірити оновлення</button>
+                <button id="ownerPassBtn" class="sidebar-pass">🔐 Паролі</button>
+                <button id="aboutBtnSidebar" class="sidebar-about">ℹ️ Про лаунчер</button>
+            </div>
         </div>
 
-        <!-- ГОЛОВНА ЧАСТИНА -->
         <div class="main">
             <div class="card" id="settingsCard" style="display:none;">
                 <h2 id="title" style="margin-top: 0; margin-bottom: 20px;">Налаштування</h2>
-                
-                <!-- СІТКА НАЛАШТУВАНЬ НА ДВІ КОЛОНКИ -->
                 <div class="form-grid">
-                    <!-- ЛІВА КОЛОНКА -->
                     <div class="form-column">
                         <label for="editName">Назва збірки</label>
                         <input type="text" id="editName" placeholder="Назва збірки">
-                        
                         <label for="user">Ігровий нікнейм</label>
                         <input type="text" id="user" placeholder="Ігровий нікнейм">
-                        
+                        <label for="password">Пароль (Premium аккаунт)</label>
+                        <input type="password" id="password" placeholder="Залиште порожнім для офлайн режиму">
                         <label for="customPath">Кастомна папка гри</label>
                         <input type="text" id="customPath" placeholder="Дефолт: папка лаунчера /instances">
                     </div>
-                    <!-- ПРАВА КОЛОНКА -->
                     <div class="form-column">
                         <label for="ver">Версія гри</label>
                         <select id="ver"></select>
-                        
                         <label for="loader">Мод-лоадер</label>
                         <select id="loader">
                             <option value="Vanilla">Vanilla</option>
-                            <option value="Fabric">Fabric</option>
-                            <option value="Forge">Forge</option>
-                            <option value="NeoForge">NeoForge</option>
+                            <option value="fabric">Fabric</option>
+                            <option value="forge">Forge</option>
+                            <option value="neoforge">NeoForge</option>
                         </select>
-                        
                         <label id="ramLabel" for="ramRange">Виділена пам'ять: 4096 MB</label>
                         <input type="range" id="ramRange" min="1024" max="16384" step="512" value="4096">
-                    </div>
-                </div>
-
-                <!-- НИЖНЯ ЗОНА КНОПОК ТА СТАТУСУ -->
-                <div class="action-zone" style="margin-top: 20px; border-top: 1px solid #27272a; padding-top: 15px;">
-                    <button id="saveBtn">ЗБЕРЕГТИ НАЛАШТУВАННЯ</button>
-                    <div style="display: flex; gap: 10px;">
-                        <button id="folderBtn">ПАПКА ГРИ</button>
-                        <button id="logBtn" style="background: #2980b9;">ЛОГИ ГРИ</button>
-                    </div>
-                    <button id="playBtn" class="play">ГРАТИ</button>
-                    
-                    <!-- Блок статусів та прогресу завантаження -->
-                    <div class="status-container" style="margin-top: 15px;">
-                        <p id="statusText" style="margin: 5px 0; font-weight: 600;">Статус: готовий</p>
-                        <div class="progress-container" style="display: none; background: #27272a; border-radius: 6px; height: 8px; overflow: hidden; margin: 8px 0;">
-                            <div id="progressBar" class="progress-bar" style="width: 0%; background: #2ecc71; height: 100%; transition: width 0.1s linear;"></div>
+                        <label>Поточний скін</label>
+                        <div class="skin-preview">
+                            <img id="skinPreviewImg" src="https://minotar.net/helm/steve/50.png" width="50" height="50" alt="Skin preview">
+                            <button id="changeSkinBtn" class="small-btn">Змінити скін</button>
                         </div>
-                        <p id="subStatusText" style="margin: 5px 0; color: #a1a1aa; font-size: 13px;"></p>
                     </div>
                 </div>
-
+                <div class="action-zone">
+                    <div class="action-buttons">
+                        <button id="saveBtn" class="save-btn">💾 ЗБЕРЕГТИ</button>
+                        <button id="folderBtn" class="folder-btn">📁 ПАПКА ГРИ</button>
+                        <button id="logBtn" class="log-btn">📋 ЛОГИ</button>
+                        <button id="modsBtn" class="mods-btn">📦 МОДИ</button>
+                    </div>
+                    <button id="playBtn" class="play">🎮 ГРАТИ</button>
+                    <div class="status-container">
+                        <p id="statusText" class="status-text">Статус: готовий</p>
+                        <div class="progress-container" style="display: none;">
+                            <div id="progressBar" class="progress-bar"></div>
+                        </div>
+                        <p id="subStatusText" class="sub-status-text"></p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-
-    <!-- КОНТЕКСТНЕ МЕНЮ -->
-    <div id="contextMenu" class="hidden">
-        <button onclick="editInst()">Редагувати</button>
-        <button onclick="delInst()" class="del-btn-style">Видалити</button>
+    <div id="contextMenu" class="context-menu hidden">
+        <button id="editInstBtn">✏️ Редагувати</button>
+        <button id="delInstBtn" class="delete-btn">🗑️ Видалити</button>
     </div>
-
     <script src="app.js"></script>
 </body>
 </html>
