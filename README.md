@@ -20,7 +20,7 @@ Fabric, Forge, NeoForge та Quilt, пошук і встановлення мо�
 
 | Репозиторій | Що там |
 |---|---|
-| [fl-bridge-repo](https://github.com/Faneraiy14/fl-bridge-repo) | релізи `FLBridge.jar` — мод-лоадер, який лаунчер завантажує сам |
+| [fl-bridge](https://github.com/Faneraiy14/fl-bridge) | релізи `FLBridge.jar` — мод-лоадер, який лаунчер завантажує сам |
 | вихідний код | у приватному репозиторії |
 
 ## Файли в релізі
