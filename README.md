@@ -1,30 +1,37 @@
-# FL Launcher — релізи
+# FL Launcher — Releases
 
-Цей репозиторій містить **тільки готові збірки** FL Launcher. Вихідного коду тут немає.
+*[Українською](README.uk.md)*
 
-## Завантажити
+This repository contains **only the built releases** of FL Launcher.
+There's no source code here.
 
-Останню версію бери на сторінці [Releases](https://github.com/Faneraiy14/fl-launcher/releases/latest) — файл `FL-Launcher-Setup-*.exe`.
+## Download
 
-Далі лаунчер оновлюється сам: перевіряє релізи при запуску й пропонує встановити нову версію.
+Grab the latest version from the [Releases](https://github.com/Faneraiy14/fl-launcher/releases/latest)
+page — the `FL-Launcher-Setup-*.exe` file.
 
-> Windows може показати синє вікно «Windows захистила ваш ПК» — у проєкту немає платного сертифіката підпису. Натисни «Докладніше», далі «Виконати все одно».
+After that, the launcher updates itself: it checks for new releases on
+startup and offers to install them.
 
-## Що таке FL Launcher
+> Windows may show a blue "Windows protected your PC" screen — the
+> project doesn't have a paid signing certificate. Click "More info",
+> then "Run anyway".
 
-Лаунчер Minecraft на Electron: керування збірками, автоматичне встановлення
-Fabric, Forge, NeoForge та Quilt, пошук і встановлення модів, скіни,
-власний мод-лоадер FL Loader.
+## What FL Launcher is
 
-## Інші частини проєкту
+An Electron-based Minecraft launcher: manages instances, automatically
+installs Fabric, Forge, NeoForge, and Quilt, lets you search and
+install mods, manage skins, and includes its own FL Loader mod loader.
 
-| Репозиторій | Що там |
+## Other parts of the project
+
+| Repository | What's there |
 |---|---|
-| [fl-bridge](https://github.com/Faneraiy14/fl-bridge) | релізи `FLBridge.jar` — мод-лоадер, який лаунчер завантажує сам |
-| вихідний код | у приватному репозиторії |
+| [fl-bridge](https://github.com/Faneraiy14/fl-bridge) | releases of `FLBridge.jar` — the mod loader the launcher downloads on its own |
+| source code | in a private repository |
 
-## Файли в релізі
+## Files in a release
 
-- `FL-Launcher-Setup-X.Y.Z.exe` — інсталятор
-- `latest.yml` — маніфест для автооновлення, потрібен лаунчеру
-- `.blockmap` — дозволяє качати лише змінені частини при оновленні
+- `FL-Launcher-Setup-X.Y.Z.exe` — the installer
+- `latest.yml` — the auto-update manifest the launcher needs
+- `.blockmap` — lets updates download only the changed parts
