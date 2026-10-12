@@ -15,6 +15,12 @@ There's no source code here.
 
 *The screenshots use demo accounts and the Ukrainian interface (English and Russian are available too). The in-launcher "Everything about FL Launcher" window:* [screenshot](docs/img/about-features.png).
 
+## Quick start
+
+1. **Download** the latest installer from [Releases](https://github.com/Faneraiy14/fl-launcher/releases/latest) and install it (Windows `.exe`; Linux `.AppImage` or `.deb`).
+2. **Create a build**: the green **+ Create** button → *Create a build*, pick the game version and (if you want) a loader. Or paste a friend's code via *Import by code*.
+3. **Press Play.** Java and the game files are downloaded automatically on the first launch.
+
 ## Download
 
 Grab the latest version from the [Releases](https://github.com/Faneraiy14/fl-launcher/releases/latest)
@@ -40,6 +46,16 @@ a chat whose history is kept only on your own computer.
 
 **Full feature list, by block: [FEATURES.md](FEATURES.md)**
 (the same text is inside the launcher: the ⓘ button at the bottom of the left panel → About → Everything about FL Launcher).
+
+## What makes it different
+
+Things most launchers do not have all in one place:
+
+- **Repair the build**: reads the real crash or log, explains what broke and fixes it with undo; nothing is deleted.
+- **Snapshots, trial copies and build codes**: try mods safely, roll back in one click, share a build as a short code.
+- **Optimization with measurement**: profiles, GPU choice with a built-in benchmark, FPS mods only after your confirmation.
+- **Own mod loader (FL Loader)** and an in-game client whose regular features and cheats are **separate switches**, with clear ban warnings.
+- **Chat with friends where the history stays on your computer**, not on a server.
 
 ## Requirements
 
