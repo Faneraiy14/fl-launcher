@@ -22,6 +22,14 @@ startup and offers to install them.
 An Electron-based Minecraft launcher: manages instances, automatically
 installs Fabric, Forge, NeoForge, and Quilt, lets you search and
 install mods, manage skins, and includes its own FL Loader mod loader.
+On top of that: built-in optimization and a "repair the build" tool,
+snapshots with rollback, trial copies and shareable build codes, an
+in-game client (HUD, menu, chat) with separate switches for regular
+features and cheats, cosmetics with an in-game currency, and friends with
+a chat whose history is kept only on your own computer.
+
+**Full feature list, by block: [FEATURES.md](FEATURES.md)**
+(the same text is inside the launcher: About → Everything about FL Launcher).
 
 ## Other parts of the project
 
