@@ -24,16 +24,34 @@ The full list of features, by block. The same description is inside the launcher
 - **Trial copy**: mods as hard links, no worlds; try mods and updates safely, then “Apply to the original” (with a snapshot first)
 - **Impact measurement**: frame comparison between the original and the copy (main-menu benchmark, three runs with a warm-up)
 - **Build code**: a short code (version, loader, Modrinth mods); a friend pastes it into “Import by code” and gets the same build
-- The author’s own game **Voxelin** as a separate build type
+- **Voxelin** is the author’s own game (a separate project, not Minecraft). In the launcher it is a separate build type: versions come from the Voxelin releases and no mod loader is needed
 
 ## ⚡ Optimization and diagnostics
 
-- **Balanced / Max FPS / Quality** profiles: memory and JVM flags chosen from your hardware (RAM, CPU, HDD/SSD), safe options.txt edits with a backup and undo
-- Choose the GPU for the game (integrated or discrete) and a **two-GPU benchmark**: the launcher measures frame evenness and recommends the better one
-- **FPS mods** (Sodium, Lithium, etc.) in one click — only after a preview and your confirmation
-- A **bottleneck indicator** in the report: memory, garbage-collector pauses, GPU, mods, disk
-- **“Repair the build”**: recognises out-of-memory, damaged natives, graphics init errors, a mod made for another version, a mod that crashed on load (even nested inside another), missing dependencies; deletes nothing and every change can be undone
+
+### Profiles
+
+- **Balanced / Max FPS / Quality**: memory and JVM flags chosen from your hardware (RAM, CPU, HDD/SSD)
+- Safe options.txt edits with a backup and undo
+
+### GPU and benchmark
+
+- Choose the GPU for the game (integrated or discrete)
+- A **two-GPU benchmark**: the launcher measures frame evenness and recommends the better one
+
+### FPS mods
+
+- Sodium, Lithium and others in one click — only after a preview of the list and your confirmation
+
+### Bottleneck indicator
+
+- An indicator in the report: memory, garbage-collector pauses, GPU, mods, disk
 - The “🩺 Report” button copies diagnostics without tokens — easy to show to whoever is helping
+
+### Repair the build
+
+- Recognises out-of-memory, damaged natives, graphics init errors, a mod made for another version, a mod that crashed on load (even nested inside another), missing dependencies
+- Deletes nothing: mods are disabled by renaming, and every change can be undone
 
 ## 🧩 Mods, shaders, resource packs
 
@@ -48,6 +66,7 @@ The full list of features, by block. The same description is inside the launcher
 - **Friends chat and photos right in the game** (“Friends” and “Photos” tabs): works through the launcher’s local broker, the account token never reaches the game
 - **Two separate parts with separate switches in build settings**: “regular features” and “cheats” (zoom, fullbright, free look). Cheats are off by default and are not even loaded until you enable them
 - ⚠️ Servers may forbid third-party clients and cheats are forbidden almost everywhere: you can be banned. The launcher shows warnings and **is not responsible for punishments or bans**
+- The client is **built into** the launcher (nothing to install separately): a global switch in launcher Settings (“Cosmetics and client”) and, per build, the “Client” tab in “Build settings”. The client code itself ships with the [fl-bridge](https://github.com/Faneraiy14/fl-bridge/releases) releases
 - Works on Vanilla, FL Loader and, via `-javaagent`, on Fabric, Quilt, Forge, NeoForge (depends on the game version; details in the fl-bridge releases)
 
 ## 🪙 Cosmetics and the launcher account (FL Hub)
@@ -71,7 +90,7 @@ The full list of features, by block. The same description is inside the launcher
 
 ## 🛡️ Security
 
-- Every mod is scanned for suspicious bytecode; mods/resourcepacks/datapacks are re-checked before each launch; nothing is blocked silently — details are shown and you confirm
+- Every mod is scanned for suspicious bytecode; mods/resourcepacks/datapacks are re-checked before each launch; nothing is blocked silently — details are shown and you confirm (for example, a mod able to run external OS commands shows which file and what was found in it)
 - Chat images are validated by content, not extension; the in-game broker listens only on 127.0.0.1 and requires a per-launch secret
 - Tokens and passwords never go into reports, and the account token never goes into the game
 
@@ -80,3 +99,11 @@ The full list of features, by block. The same description is inside the launcher
 - Language, theme, accent, scale, build window mode, grouping, simple mode, custom profiles
 - Cosmetics and in-game client, game window on Linux (X11), update interval, datapack scanning
 - Chat: keep chats on this computer or not, delete all saved chats
+
+## 📋 Requirements and supported versions
+
+- **OS:** Windows and Linux (`.exe` installer, plus `.AppImage` and `.deb`)
+- **Minecraft versions:** from 1.14.4 up to the newest 26.x for FL Loader; for Fabric, Quilt, Forge, NeoForge — the versions the loader itself supports
+- **Loaders:** Vanilla, Fabric, Quilt, Forge, NeoForge, FL Loader
+- **Java:** nothing to install — the launcher picks and downloads the right one for the game version
+- Some client features depend on the game version; details are in the [fl-bridge](https://github.com/Faneraiy14/fl-bridge/releases) releases

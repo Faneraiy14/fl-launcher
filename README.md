@@ -31,6 +31,12 @@ a chat whose history is kept only on your own computer.
 **Full feature list, by block: [FEATURES.md](FEATURES.md)**
 (the same text is inside the launcher: About → Everything about FL Launcher).
 
+## Requirements
+
+- **OS:** Windows or Linux
+- **Minecraft:** 1.14.4 – the newest 26.x with FL Loader; Fabric, Quilt, Forge and NeoForge versions are the ones those loaders support
+- **Java:** nothing to install — the launcher downloads the right one for each game version
+
 ## Other parts of the project
 
 | Repository | What's there |
