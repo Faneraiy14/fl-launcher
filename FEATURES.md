@@ -102,8 +102,10 @@ The full list of features, by block. The same description is inside the launcher
 
 ## 📋 Requirements and supported versions
 
-- **OS:** Windows and Linux (`.exe` installer, plus `.AppImage` and `.deb`)
+- **OS:** Windows 10 / 11 (64-bit) and Linux (64-bit): `.AppImage` for any distribution, `.deb` for Debian/Ubuntu-based ones
 - **Minecraft versions:** from 1.14.4 up to the newest 26.x for FL Loader; for Fabric, Quilt, Forge, NeoForge — the versions the loader itself supports
+- **What is “26.x”?** Mojang switched to year-based version numbers: 26.1, 26.2, 26.3 … are the 2026 releases of Minecraft
+- **RAM and disk:** 8 GB of system RAM is comfortable (the game usually gets 3–6 GB); the installer is about 100 MB, each game version with libraries roughly 0.5–1 GB, plus worlds and mods
 - **Loaders:** Vanilla, Fabric, Quilt, Forge, NeoForge, FL Loader
 - **Java:** nothing to install — the launcher picks and downloads the right one for the game version
 - Some client features depend on the game version; details are in the [fl-bridge](https://github.com/Faneraiy14/fl-bridge/releases) releases
