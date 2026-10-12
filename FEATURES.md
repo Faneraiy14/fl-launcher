@@ -14,6 +14,9 @@ The full list of features, by block. The same description is inside the launcher
 - Simple mode and custom field-visibility profiles; a short guided tour (skippable, reopenable)
 - The game runs as a separate process, so the launcher can be closed after launch; offline launch when everything needed is already on disk
 - Auto-updates for the launcher and the FL Bridge component; a running game is not closed by an update
+- A game started BEFORE a restart for an update is picked up again afterwards: “Stop” keeps working
+- The game version list is cached on disk: without internet the launcher still shows previously loaded versions
+- OS notifications about mod installs and errors, plain-language explanations of typical launch errors
 
 ## 🎮 Builds
 
@@ -24,6 +27,7 @@ The full list of features, by block. The same description is inside the launcher
 - **Trial copy**: mods as hard links, no worlds; try mods and updates safely, then “Apply to the original” (with a snapshot first)
 - **Impact measurement**: frame comparison between the original and the copy (main-menu benchmark, three runs with a warm-up)
 - **Build code**: a short code (version, loader, Modrinth mods); a friend pastes it into “Import by code” and gets the same build
+- Several copies of the same or different builds can run at the same time
 - **Voxelin** is the author’s own game (a separate project, not Minecraft). In the launcher it is a separate build type: versions come from the Voxelin releases and no mod loader is needed
 
 ## ⚡ Optimization and diagnostics
