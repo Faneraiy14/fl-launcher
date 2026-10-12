@@ -12,6 +12,7 @@ The full list of features, by block. The same description is inside the launcher
 - Build window mode: by default a plain **× in the top-right corner**; single panel, tabs or a single tab are available too
 - Dark and light themes, accent colour, interface scale, languages: Ukrainian, English, Russian
 - Simple mode and custom field-visibility profiles; a short guided tour (skippable, reopenable)
+- **Servers**: popular servers (ReallyWorld, FunTime, Hypixel and others) with Offline, Licensed and All filters, a label for which accounts each server accepts, online counts and a Join button right from a build; favorites, recent and your own servers. The account type is based on community info and may change
 - The game runs as a separate process, so the launcher can be closed after launch; offline launch when everything needed is already on disk
 - Auto-updates for the launcher and the FL Bridge component; a running game is not closed by an update
 - A game started BEFORE a restart for an update is picked up again afterwards: “Stop” keeps working
@@ -25,6 +26,9 @@ The full list of features, by block. The same description is inside the launcher
 - A **“Build settings”** window with tabs: General, Optimization, Diagnostics, Snapshots, Client
 - **Snapshots and rollback**: before optimizing, installing FPS mods or repairing, the launcher saves mods, config, options.txt and settings; rolling back deletes nothing and can itself be undone
 - **Trial copy**: mods as hard links, no worlds; try mods and updates safely, then “Apply to the original” (with a snapshot first)
+- **Update all mods in one click**: the launcher checks for new versions on Modrinth, shows “was → will be”, and before updating takes a snapshot and (for worlds up to 1 GB) a world copy; if something breaks, roll back in one click
+- **World backups**: manual and automatic (before mod updates), up to 3 copies per world, restoring deletes nothing (the current world is renamed)
+- **Build exchange in .mrpack format** (Modrinth): export and import as one file understood by Modrinth and other launchers; foreign packs are validated (paths, links, hashes, mod scanner)
 - **Impact measurement**: frame comparison between the original and the copy (main-menu benchmark, three runs with a warm-up)
 - **Build code**: a short code (version, loader, Modrinth mods); a friend pastes it into “Import by code” and gets the same build
 - Several copies of the same or different builds can run at the same time
