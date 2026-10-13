@@ -82,6 +82,7 @@ The full list of features, by block. The same description is inside the launcher
 - A separate **launcher account** (nick + password) with a **recovery code**: forgot the password — reset it yourself, no owner needed
 - Coins for play time, a daily bonus, achievements; cases and a prize wheel with cosmetics (capes, wings, halos, overlays), honest odds
 - Cosmetics are visible in game on all supported loaders (built-in mechanism, can be turned off in settings)
+- Cosmetic wings **instead of elytra**: in flight you see your wings (they flap), not vanilla elytra; can be turned off in settings
 - A **3D player preview** in “Cosmetics”: your skin + equipped cosmetics, mouse rotation, animations (idle, walking, waving), classic or slim model, a “with cosmetics / skin only” switch
 - A **global skin** (“Cosmetics → Look”): pick once, then each build chooses between the global skin and its own. You can upload and delete your own PNG skins
 - **23 items**: capes, wings (including butterfly, crystal, dragon), halos, skin overlays; some with particles (for example “Glow”; particles arrive with the client update)
