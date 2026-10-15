@@ -64,6 +64,8 @@ The full list of features, by block. The same description is inside the launcher
 ## 🧩 Mods, shaders, resource packs
 
 - Search and install mods, shader packs and resource packs from **Modrinth** (and CurseForge with an API key)
+- As soon as you open “Mods”, you see **popular** mods, shaders or resource packs for your version and loader, no empty list
+- For **FL Loader** builds, a dedicated FL mod catalog: the whole list at once, game-version compatibility, file integrity check (sha1) before install
 - Automatic required-library check before launch, plus a “Check dependencies” button
 - Mod bundles (ready-made and your own), search among installed mods, system notifications about results
 
