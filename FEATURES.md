@@ -21,6 +21,8 @@ The full list of features, by block. The same description is inside the launcher
 
 ## 🎮 Builds
 
+- A new build is ready to play right away: the latest stable Minecraft version (not a snapshot) and a nice English name with no repeats, e.g. “Swift Falcon”
+- **Global nickname**: one nickname for every build, set in Settings - no need to type it in each build (can be turned off to keep a separate nickname per build)
 - Many separate builds: own folder, mods, worlds and settings; groups, drag-and-drop ordering, duplication
 - Automatic install of **Fabric, Quilt, Forge, NeoForge** and the own **FL Loader**; loader version picker (recommended one marked); Java is chosen automatically
 - A **“Build settings”** window with tabs: General, Optimization, Diagnostics, Snapshots, Client
