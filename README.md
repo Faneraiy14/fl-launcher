@@ -24,7 +24,11 @@ There's no source code here.
 ## Download
 
 Grab the latest version from the [Releases](https://github.com/Faneraiy14/fl-launcher/releases/latest)
-page — the `FL-Launcher-Setup-*.exe` file.
+page:
+
+- **Windows** — `FL-Launcher-Setup-*.exe`
+- **Linux, Ubuntu / Debian / Mint / Pop!_OS** — `fl-launcher_*_amd64.deb` (recommended): double-click it and install through the Software app, or `sudo apt install ./fl-launcher_*_amd64.deb`. The launcher appears in the app menu.
+- **Linux, any other distribution** — `FL-Launcher-*.AppImage`
 
 After that, the launcher updates itself: it checks for new releases on
 startup and offers to install them.
@@ -32,6 +36,14 @@ startup and offers to install them.
 > Windows may show a blue "Windows protected your PC" screen — the
 > project doesn't have a paid signing certificate. Click "More info",
 > then "Run anyway".
+
+> **AppImage does nothing on double-click?** Linux doesn't let a freshly
+> downloaded file run as a program until you allow it. Do it once:
+> right-click the file → *Properties* → enable *Allow executing file as
+> program* (the wording depends on the file manager), or in a terminal:
+> `chmod +x FL-Launcher-*.AppImage`. After the first launch the launcher
+> adds itself to the app menu with its icon, and updates keep that
+> permission.
 
 ## What FL Launcher is
 
@@ -78,8 +90,10 @@ Things most launchers do not have all in one place:
 
 ## Files in a release
 
-- `FL-Launcher-Setup-X.Y.Z.exe` — the installer
-- `latest.yml` — the auto-update manifest the launcher needs
+- `FL-Launcher-Setup-X.Y.Z.exe` — the Windows installer
+- `fl-launcher_X.Y.Z_amd64.deb` — the package for Debian/Ubuntu-based Linux
+- `FL-Launcher-X.Y.Z.AppImage` — Linux, any distribution
+- `latest.yml`, `latest-linux.yml` — the auto-update manifests the launcher needs
 - `.blockmap` — lets updates download only the changed parts
 
 ## License
